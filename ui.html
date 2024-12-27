@@ -1,11 +1,11 @@
 <div id="app">
-    <h2>Figma Todo List</h2>
+    <h2>Figminders</h2>
     
     <div class="add-todo">
         <img 
             id="selectionPreview" 
-            class="preview-image hidden" 
             alt="Selection Preview"
+            class="hidden"
         >
         <div class="input-group">
             <div class="input-row">
@@ -23,13 +23,26 @@
     body {
         font-family: Inter, sans-serif;
         padding: 20px;
+        background: #fafafa;
+    }
+    
+    #app {
+        background: white;
+        border-radius: 8px;
+        padding: 24px;
     }
     
     .add-todo {
         display: flex;
         gap: 12px;
-        margin-bottom: 16px;
+        margin-bottom: 24px;
         align-items: center;
+        padding: 24px;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05),
+                    0 4px 12px rgba(0, 0, 0, 0.1);
+        border-bottom: none;
     }
     
     .input-group {
@@ -49,18 +62,22 @@
     }
     
     #selectionPreview {
-        width: 192px;
-        height: 192px;
-        object-fit: contain;
-        background: #f0f0f0;
-        border-radius: 4px;
+        width: 150px;
+        height: 150px;
     }
     
     input {
         flex: 1;
-        padding: 8px;
+        padding: 8px 12px;
         border: 1px solid #e5e5e5;
-        border-radius: 4px;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+    
+    input:focus {
+        outline: none;
+        border-color: #18A0FB;
+        box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
     }
     
     button {
@@ -68,8 +85,14 @@
         background: #18A0FB;
         color: white;
         border: none;
-        border-radius: 4px;
+        border-radius: 6px;
         cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s ease;
+    }
+    
+    button:hover {
+        background: #0F9EF3;
     }
     
     .todo-item {
@@ -78,6 +101,8 @@
         padding: 24px 8px 24px 0;
         border-bottom: 1px solid #e5e5e5;
         gap: 0;
+        min-height: 75px;
+        box-sizing: content-box;
     }
     
     .todo-checkbox {
@@ -95,6 +120,9 @@
         margin-left: 12px;
         margin-right: 12px;
         cursor: text;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     
     .todo-text-input {
@@ -116,8 +144,16 @@
     
     .preview-image {
         margin-left: auto;
+        max-width: 100px;
+        max-height: 75px;
         width: auto;
-        height: 75px;
+        height: auto;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+    }
+    
+    .preview-image:hover {
+        transform: scale(1.05);
     }
     
     .preview-image, #selectionPreview {
@@ -127,14 +163,16 @@
     }
     
     .todo-section {
-        margin-bottom: 24px;
+        margin-bottom: 32px;
     }
     
     .section-title {
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 500;
-        color: #333;
-        margin: 16px 0 8px 0;
+        color: #666;
+        margin: 32px 0 16px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
     
     .completed .todo-text {
@@ -185,6 +223,13 @@
     
     .todo-item.drag-over {
         border-top: 2px solid #18A0FB;
+    }
+    
+    h2 {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 0 0 20px 0;
     }
 </style>
 
@@ -248,28 +293,29 @@
                 previewImg.classList.add('hidden');
             }
         }
+
+        if (msg.type === 'error') {
+            alert(msg.message);
+        }
     }
 
     function updateTodoList(newTodos) {
-        todos = newTodos;  // Update our local copy
+        todos = newTodos;
         const todoList = document.getElementById('todoList');
         const activeTodos = todos.filter(todo => !todo.completed);
         const completedTodos = todos.filter(todo => todo.completed);
         
         todoList.innerHTML = `
             <div class="todo-section">
-                ${activeTodos.length > 0 ? `
-                    <div class="section-title">Active Todos</div>
-                    ${renderTodos(activeTodos)}
-                ` : ''}
+                ${renderTodos(activeTodos)}
             </div>
             
-            <div class="todo-section">
-                ${completedTodos.length > 0 ? `
-                    <div class="section-title">Completed Todos</div>
+            ${completedTodos.length > 0 ? `
+                <div class="todo-section">
+                    <div class="section-title">Completed</div>
                     ${renderTodos(completedTodos)}
-                ` : ''}
-            </div>
+                </div>
+            ` : ''}
         `;
 
         // Add event listeners for checkboxes and drag-drop
@@ -311,6 +357,7 @@
                     class="preview-image" 
                     src="data:image/png;base64,${todo.preview}" 
                     alt="Preview"
+                    onclick="selectOriginalNode('${todo.nodeId}')"
                 >
                 <span 
                     class="delete-button" 
@@ -443,5 +490,14 @@
         // Re-enable dragging
         const todoItem = span.closest('.todo-item');
         todoItem.setAttribute('draggable', 'true');
+    }
+
+    function selectOriginalNode(nodeId) {
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'select-node',
+                nodeId: nodeId
+            }
+        }, '*');
     }
 </script>

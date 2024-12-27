@@ -135,4 +135,23 @@ figma.ui.onmessage = async function (msg) {
             console.error('Error updating todo text:', error);
         }
     }
+
+    if (msg.type === 'select-node') {
+        try {
+            const node = figma.getNodeById(msg.nodeId);
+            if (node) {
+                // Select the node
+                figma.currentPage.selection = [node];
+                
+                // Scroll viewport to show the node
+                figma.viewport.scrollAndZoomIntoView([node]);
+            }
+        } catch (error) {
+            console.error('Error selecting node:', error);
+            figma.ui.postMessage({
+                type: 'error',
+                message: 'Could not find the original object'
+            });
+        }
+    }
 };

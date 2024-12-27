@@ -1,5 +1,5 @@
 {
-    "name": "Figma Todo List",
+    "name": "Figminders",
     "id": "your.plugin.id",
     "api": "1.0.0",
     "main": "code.js",
