@@ -191,35 +191,27 @@ function getNodeRelationships(nodeId) {
         return null;
     }
     
-    console.log(`📍 Getting relationships for node: "${node.name}" (${nodeId})`);
+    console.log(`📍 Getting relationships for node: "${node.name}" (ID: ${nodeId})`);
     
     const relationships = {
-        id: node.id,
-        parent: null,
-        children: [],
-        siblings: []
+        nodeId: nodeId,
+        parentId: node.parent ? node.parent.id : null,
+        childrenIds: [],
+        siblingIds: []
     };
     
-    // Get parent
-    if (node.parent) {
-        relationships.parent = node.parent.id;
-        console.log(`  👆 Parent: "${node.parent.name}" (${node.parent.id})`);
-    }
-    
-    // Get children
+    // Get children IDs
     if ('children' in node) {
-        relationships.children = node.children.map(child => child.id);
-        console.log(`  👇 Children: ${node.children.map(c => `"${c.name}"`).join(', ')}`);
+        relationships.childrenIds = node.children.map(child => child.id);
+        console.log(`  👇 Children IDs: [${relationships.childrenIds.join(', ')}]`);
     }
     
-    // Get siblings
+    // Get sibling IDs
     if (node.parent && 'children' in node.parent) {
-        relationships.siblings = node.parent.children
-            .filter(sibling => sibling.id !== node.id)
+        relationships.siblingIds = node.parent.children
+            .filter(sibling => sibling.id !== nodeId)
             .map(sibling => sibling.id);
-        console.log(`  👥 Siblings: ${node.parent.children
-            .filter(s => s.id !== node.id)
-            .map(s => `"${s.name}"`).join(', ')}`);
+        console.log(`  👥 Sibling IDs: [${relationships.siblingIds.join(', ')}]`);
     }
     
     return relationships;
@@ -261,48 +253,45 @@ function organizeSmartGroups(todos) {
     const groups = new Map();
     const processedNodes = new Set();
 
-    // Debug the todos we're working with
-    console.log('\n📋 Initial todos:');
-    todos.forEach(todo => {
-        console.log(`  • Todo: "${todo.text}" (NodeID: ${todo.nodeId})`);
-    });
-
-    // First pass: find related todos and create groups
+    // First pass: find parent-child relationships
     todos.forEach((todo1, index) => {
         if (processedNodes.has(todo1.nodeId)) {
-            console.log(`⏭️ Skipping already processed node: ${todo1.nodeName}`);
+            console.log(`⏭️ Skipping processed nodeId: ${todo1.nodeId}`);
             return;
         }
 
-        console.log(`\n🔍 Checking relationships for todo: "${todo1.text}" (Node: ${todo1.nodeName}, NodeID: ${todo1.nodeId})`);
-        const relatedTodos = todos.filter((todo2, idx) => {
-            if (index === idx) return false;
-            const isRelated = areNodesRelated(todo1.nodeId, todo2.nodeId);
-            if (isRelated) {
-                console.log(`  ✨ Found related todo: "${todo2.text}" (Node: ${todo2.nodeName}, NodeID: ${todo2.nodeId})`);
-            }
-            return isRelated;
-        });
+        console.log(`\n🔍 Checking relationships for nodeId: ${todo1.nodeId}`);
+        const relationships = getNodeRelationships(todo1.nodeId);
+        if (!relationships) return;
 
-        if (relatedTodos.length > 0) {
-            console.log(`  📎 Creating group with ${relatedTodos.length} related todos`);
-            groups.set(todo1.nodeId, relatedTodos);  // Using nodeId as key
+        // Find todos that are children of this node
+        const childTodos = todos.filter(todo2 => 
+            todo2.nodeId !== todo1.nodeId && 
+            relationships.childrenIds.includes(todo2.nodeId)
+        );
+
+        if (childTodos.length > 0) {
+            console.log(`  📎 Creating group with ${childTodos.length} child todos`);
+            console.log(`  Parent NodeId: ${todo1.nodeId}`);
+            console.log(`  Children NodeIds: [${childTodos.map(t => t.nodeId).join(', ')}]`);
+            
+            groups.set(todo1.nodeId, childTodos);
             processedNodes.add(todo1.nodeId);
-            relatedTodos.forEach(todo => processedNodes.add(todo.nodeId));
+            childTodos.forEach(child => processedNodes.add(child.nodeId));
         }
     });
 
     // Debug the groups Map
     console.log('\n📊 Groups Map contents:');
-    groups.forEach((children, key) => {
-        console.log(`  Group key: ${key}`);
-        console.log(`  Children: ${children.map(c => c.nodeId).join(', ')}`);
+    groups.forEach((children, parentNodeId) => {
+        console.log(`  Parent NodeId: ${parentNodeId}`);
+        console.log(`  Children NodeIds: [${children.map(c => c.nodeId).join(', ')}]`);
     });
 
     // Second pass: handle remaining unprocessed todos
     todos.forEach(todo => {
         if (!processedNodes.has(todo.nodeId)) {
-            console.log(`  ➕ Adding standalone todo: "${todo.text}" (Node: ${todo.nodeName}, NodeID: ${todo.nodeId})`);
+            console.log(`  ➕ Adding standalone todo with NodeId: ${todo.nodeId}`);
             groups.set(todo.nodeId, []);
             processedNodes.add(todo.nodeId);
         }
