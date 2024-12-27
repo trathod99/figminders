@@ -1,6 +1,14 @@
 <div id="app">
     <h2>Figminders</h2>
     
+    <div class="display-mode">
+        <label class="mode-label">Display Mode:</label>
+        <div class="mode-toggle">
+            <button class="mode-button active" onclick="setDisplayMode('manual')">Manual</button>
+            <button class="mode-button" onclick="setDisplayMode('smart')">Smart Grouping</button>
+        </div>
+    </div>
+
     <div class="add-todo">
         <img 
             id="selectionPreview" 
@@ -17,6 +25,12 @@
     </div>
 
     <div id="todoList"></div>
+</div>
+
+<div class="loading-overlay">
+    <div class="loading-spinner">
+        <div class="loading-text">Organizing todos...</div>
+    </div>
 </div>
 
 <style>
@@ -124,6 +138,7 @@
         text-overflow: ellipsis;
         display: -webkit-box;
         -webkit-line-clamp: 2;
+        line-clamp: 2;
         -webkit-box-orient: vertical;
         line-height: 1.4;
         white-space: normal;
@@ -240,11 +255,157 @@
         color: #333;
         margin: 0 0 20px 0;
     }
+    
+    .display-mode {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .mode-label {
+        font-size: 13px;
+        color: #666;
+    }
+    
+    .mode-toggle {
+        display: flex;
+        gap: 1px;
+        background: #E5E5E5;
+        padding: 2px;
+        border-radius: 6px;
+    }
+    
+    .mode-button {
+        background: transparent;
+        color: #333;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+    
+    .mode-button:hover {
+        background: rgba(0, 0, 0, 0.05);
+    }
+    
+    .mode-button.active {
+        background: white;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+    
+    .todo-group {
+        margin-left: 24px;
+        border-left: 2px solid #E5E5E5;
+        padding-left: 12px;
+    }
+    
+    .todo-group-container {
+        margin-bottom: 16px;
+        border: 1px solid #E5E5E5;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    .todo-group-container > .todo-item {
+        background: white;
+        border-bottom: 1px solid #E5E5E5;
+        margin-bottom: 0;
+        padding-left: 8px;
+    }
+    
+    .todo-group {
+        background: #FAFAFA;
+        padding: 8px 0;
+        margin-left: 0;
+        border-top: 1px solid #E5E5E5;
+    }
+    
+    .todo-group .todo-item {
+        padding-left: 48px;
+        border-bottom: 1px solid #EAEAEA;
+        background: transparent;
+    }
+    
+    .todo-group .todo-item:last-child {
+        border-bottom: none;
+    }
+    
+    /* Standalone todos */
+    .todo-section > .todo-item {
+        background: white;
+        border: 1px solid #E5E5E5;
+        margin-bottom: 8px;
+        border-radius: 8px;
+    }
+    
+    .preview-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-left: auto;
+        gap: 4px;
+    }
+    
+    .layer-name {
+        font-size: 11px;
+        color: #666;
+        max-width: 100px;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .loading-overlay {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+    
+    .loading-overlay.active {
+        display: flex;
+    }
+    
+    .loading-spinner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .loading-spinner::before {
+        content: '';
+        width: 24px;
+        height: 24px;
+        border: 2px solid #E5E5E5;
+        border-top-color: #18A0FB;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    .loading-text {
+        font-size: 13px;
+        color: #333;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
 </style>
 
 <script>
     let draggedItem = null;
     let todos = [];  // Keep track of todos in memory
+    let currentDisplayMode = 'manual';
+    let nodeHierarchies = new Map();
     
     function addTodo() {
         const input = document.getElementById('todoInput');
@@ -306,6 +467,20 @@
         if (msg.type === 'error') {
             alert(msg.message);
         }
+
+        if (msg.type === 'node-hierarchy') {
+            // Store hierarchy information for later use
+            if (msg.relationships) {
+                nodeHierarchies.set(msg.nodeId, msg.relationships);
+            }
+        }
+
+        if (msg.type === 'smart-groups-ready') {
+            // Hide loading overlay
+            document.querySelector('.loading-overlay').classList.remove('active');
+            // Update the groups and re-render
+            updateSmartGroups(msg.groups);
+        }
     }
 
     function updateTodoList(newTodos) {
@@ -314,18 +489,34 @@
         const activeTodos = todos.filter(todo => !todo.completed);
         const completedTodos = todos.filter(todo => todo.completed);
         
-        todoList.innerHTML = `
-            <div class="todo-section">
-                ${renderTodos(activeTodos)}
-            </div>
-            
-            ${completedTodos.length > 0 ? `
+        if (currentDisplayMode === 'manual') {
+            todoList.innerHTML = `
                 <div class="todo-section">
-                    <div class="section-title">Completed</div>
-                    ${renderTodos(completedTodos)}
+                    ${renderTodos(activeTodos)}
                 </div>
-            ` : ''}
-        `;
+                
+                ${completedTodos.length > 0 ? `
+                    <div class="todo-section">
+                        <div class="section-title">Completed</div>
+                        ${renderTodos(completedTodos)}
+                    </div>
+                ` : ''}
+            `;
+        } else {
+            // Smart Grouping mode
+            todoList.innerHTML = `
+                <div class="todo-section">
+                    ${renderSmartGroups(activeTodos)}
+                </div>
+                
+                ${completedTodos.length > 0 ? `
+                    <div class="todo-section">
+                        <div class="section-title">Completed</div>
+                        ${renderSmartGroups(completedTodos)}
+                    </div>
+                ` : ''}
+            `;
+        }
 
         // Add event listeners for checkboxes and drag-drop
         todoList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
@@ -362,12 +553,15 @@
                     class="todo-text" 
                     onclick="startEditing(event, ${todo.id})"
                 >${todo.text}</span>
-                <img 
-                    class="preview-image" 
-                    src="data:image/png;base64,${todo.preview}" 
-                    alt="Preview"
-                    onclick="selectOriginalNode('${todo.nodeId}')"
-                >
+                <div class="preview-container">
+                    <img 
+                        class="preview-image" 
+                        src="data:image/png;base64,${todo.preview}" 
+                        alt="Preview"
+                        onclick="selectOriginalNode('${todo.nodeId}')"
+                    >
+                    <span class="layer-name">${todo.nodeName}</span>
+                </div>
                 <span 
                     class="delete-button" 
                     onclick="deleteTodo(${todo.id})"
@@ -509,5 +703,165 @@
                 nodeId: nodeId
             }
         }, '*');
+    }
+
+    function setDisplayMode(mode) {
+        currentDisplayMode = mode;
+        
+        // Update button styles
+        document.querySelectorAll('.mode-button').forEach(btn => {
+            btn.classList.toggle('active', btn.innerText.toLowerCase().includes(mode));
+        });
+        
+        if (mode === 'smart') {
+            // Show loading overlay
+            document.querySelector('.loading-overlay').classList.add('active');
+            
+            // Request smart groups organization
+            parent.postMessage({ 
+                pluginMessage: { 
+                    type: 'organize-smart-groups',
+                    todos: todos
+                }
+            }, '*');
+        } else {
+            updateTodoList(todos);
+        }
+    }
+    
+    function getNodeHierarchy(nodeId) {
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'get-node-hierarchy',
+                nodeId: nodeId
+            }
+        }, '*');
+    }
+
+    function renderSmartGroups(todos) {
+        // Request hierarchy information and organization
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'organize-smart-groups',
+                todos: todos
+            }
+        }, '*');
+        
+        // Return empty string - actual rendering will happen when we get the response
+        return '';
+    }
+
+    function updateSmartGroups(groups) {
+        const todoList = document.getElementById('todoList');
+        if (!todoList) return;
+
+        const activeTodos = todos.filter(todo => !todo.completed);
+        const completedTodos = todos.filter(todo => todo.completed);
+
+        if (currentDisplayMode === 'smart') {
+            todoList.innerHTML = `
+                <div class="todo-section">
+                    ${renderGroupedTodos(groups, activeTodos)}
+                </div>
+                
+                ${completedTodos.length > 0 ? `
+                    <div class="todo-section">
+                        <div class="section-title">Completed</div>
+                        ${renderGroupedTodos(groups, completedTodos)}
+                    </div>
+                ` : ''}
+            `;
+
+            // Re-add event listeners
+            addTodoEventListeners();
+        }
+    }
+
+    function renderGroupedTodos(groups, filteredTodos) {
+        console.log('\n📋 === SMART GROUP RENDERING START ===');
+        console.log(`Total todos to process: ${filteredTodos.length}`);
+        console.log('Groups:', groups);
+        
+        const processedIds = new Set();
+        
+        // First render grouped todos
+        console.log('\n🔄 Processing Groups:');
+        const groupedContent = groups
+            .filter(([nodeId, children]) => {
+                // Find parent todo by nodeId (e.g., "2:6")
+                const parent = filteredTodos.find(t => t.nodeId === nodeId);
+                if (!parent) {
+                    console.log(`❌ Could not find todo with nodeId: "${nodeId}"`);
+                    return false;
+                }
+                console.log(`✅ Found group parent: "${parent.text}" (Node: ${parent.nodeName})`);
+                return true;
+            })
+            .map(([nodeId, children]) => {
+                const parentTodo = filteredTodos.find(t => t.nodeId === nodeId);
+                processedIds.add(parentTodo.id);
+                
+                // Filter and find the actual todo objects for children
+                const validChildren = children
+                    .filter(child => {
+                        const found = filteredTodos.find(t => t.nodeId === child.nodeId);
+                        if (found) {
+                            processedIds.add(found.id);
+                            return true;
+                        }
+                        return false;
+                    })
+                    .map(child => filteredTodos.find(t => t.nodeId === child.nodeId));
+
+                console.log(`📦 Processing group "${parentTodo.text}" with ${validChildren.length} children`);
+                
+                if (validChildren.length === 0) {
+                    console.log(`  └─ No children, rendering as standalone`);
+                    return renderTodos([parentTodo]);
+                }
+                
+                console.log(`  └─ Rendering as group with ${validChildren.length} children`);
+                return `
+                    <div class="todo-group-container">
+                        ${renderTodos([parentTodo])}
+                        <div class="todo-group">
+                            ${renderTodos(validChildren)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+        // Handle remaining todos
+        const remainingTodos = filteredTodos.filter(todo => !processedIds.has(todo.id));
+        console.log('\n📌 Remaining Ungrouped Todos:');
+        remainingTodos.forEach(todo => {
+            console.log(`   • "${todo.text}" (Node: "${todo.nodeName}")`);
+        });
+        
+        const remainingContent = remainingTodos.length > 0 ? renderTodos(remainingTodos) : '';
+        
+        return groupedContent + remainingContent;
+    }
+
+    function addTodoEventListeners() {
+        const todoList = document.getElementById('todoList');
+        
+        todoList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const todoId = parseInt(e.target.dataset.todoId);
+                toggleTodo(todoId, e.target.checked);
+            });
+        });
+
+        if (currentDisplayMode === 'manual') {
+            todoList.querySelectorAll('.todo-item').forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragenter', handleDragEnter);
+                item.addEventListener('dragleave', handleDragLeave);
+            });
+        }
     }
 </script>
