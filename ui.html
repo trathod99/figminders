@@ -1,0 +1,86 @@
+<div id="app">
+    <h2>Figma Todo List</h2>
+    
+    <div class="add-todo">
+        <input type="text" id="todoInput" placeholder="Enter a todo...">
+        <button onclick="addTodo()">Add Todo</button>
+    </div>
+
+    <div id="todoList"></div>
+</div>
+
+<style>
+    body {
+        font-family: Inter, sans-serif;
+        padding: 20px;
+    }
+    
+    .add-todo {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    input {
+        flex: 1;
+        padding: 8px;
+        border: 1px solid #e5e5e5;
+        border-radius: 4px;
+    }
+    
+    button {
+        padding: 8px 16px;
+        background: #18A0FB;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .todo-item {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        border-bottom: 1px solid #e5e5e5;
+    }
+</style>
+
+<script>
+    function addTodo() {
+        const input = document.getElementById('todoInput');
+        const text = input.value.trim();
+        
+        if (text) {
+            parent.postMessage({ 
+                pluginMessage: { 
+                    type: 'add-todo',
+                    text: text
+                }
+            }, '*');
+            input.value = '';
+        }
+    }
+
+    // Listen for messages from the plugin code
+    window.onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        
+        if (msg.type === 'no-selection') {
+            alert(msg.message);
+        }
+        
+        if (msg.type === 'todos-updated') {
+            updateTodoList(msg.todos);
+        }
+    }
+
+    function updateTodoList(todos) {
+        const todoList = document.getElementById('todoList');
+        todoList.innerHTML = todos.map(todo => `
+            <div class="todo-item">
+                <input type="checkbox" ${todo.completed ? 'checked' : ''}>
+                <span>${todo.text}</span>
+            </div>
+        `).join('');
+    }
+</script>
