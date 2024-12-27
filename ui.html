@@ -2,8 +2,15 @@
     <h2>Figma Todo List</h2>
     
     <div class="add-todo">
-        <input type="text" id="todoInput" placeholder="Enter a todo...">
-        <button onclick="addTodo()">Add Todo</button>
+        <img 
+            id="selectionPreview" 
+            class="preview-image hidden" 
+            alt="Selection Preview"
+        >
+        <div class="input-group">
+            <input type="text" id="todoInput" placeholder="Enter a todo...">
+            <button onclick="addTodo()">Add Todo</button>
+        </div>
     </div>
 
     <div id="todoList"></div>
@@ -17,8 +24,27 @@
     
     .add-todo {
         display: flex;
-        gap: 8px;
+        gap: 12px;
         margin-bottom: 16px;
+        align-items: center;
+    }
+    
+    .input-group {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+    }
+    
+    .hidden {
+        display: none;
+    }
+    
+    #selectionPreview {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+        background: #f0f0f0;
+        border-radius: 4px;
     }
     
     input {
@@ -40,8 +66,46 @@
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 8px;
+        padding: 8px 8px 8px 0;
         border-bottom: 1px solid #e5e5e5;
+        gap: 12px;
+    }
+    
+    .todo-checkbox {
+        margin-left: 0;
+        margin-right: 8px;
+    }
+    
+    .todo-text {
+        flex: 1;
+    }
+    
+    .preview-image, #selectionPreview {
+        width: 64px;
+        height: 64px;
+        object-fit: contain;
+        background: #f0f0f0;
+        border-radius: 4px;
+    }
+    
+    .todo-section {
+        margin-bottom: 24px;
+    }
+    
+    .section-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #333;
+        margin: 16px 0 8px 0;
+    }
+    
+    .completed .todo-text {
+        text-decoration: line-through;
+        color: #888;
+    }
+    
+    .completed .preview-image {
+        opacity: 0.6;
     }
 </style>
 
@@ -61,6 +125,16 @@
         }
     }
 
+    function toggleTodo(todoId, completed) {
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'toggle-todo',
+                todoId: todoId,
+                completed: completed
+            }
+        }, '*');
+    }
+
     // Listen for messages from the plugin code
     window.onmessage = (event) => {
         const msg = event.data.pluginMessage;
@@ -72,14 +146,63 @@
         if (msg.type === 'todos-updated') {
             updateTodoList(msg.todos);
         }
+
+        if (msg.type === 'selection-preview') {
+            const previewImg = document.getElementById('selectionPreview');
+            if (msg.preview) {
+                previewImg.src = `data:image/png;base64,${msg.preview}`;
+                previewImg.classList.remove('hidden');
+            } else {
+                previewImg.classList.add('hidden');
+            }
+        }
     }
 
     function updateTodoList(todos) {
         const todoList = document.getElementById('todoList');
-        todoList.innerHTML = todos.map(todo => `
-            <div class="todo-item">
-                <input type="checkbox" ${todo.completed ? 'checked' : ''}>
-                <span>${todo.text}</span>
+        const activeTodos = todos.filter(todo => !todo.completed);
+        const completedTodos = todos.filter(todo => todo.completed);
+        
+        todoList.innerHTML = `
+            <div class="todo-section">
+                ${activeTodos.length > 0 ? `
+                    <div class="section-title">Active Todos</div>
+                    ${renderTodos(activeTodos)}
+                ` : ''}
+            </div>
+            
+            <div class="todo-section">
+                ${completedTodos.length > 0 ? `
+                    <div class="section-title">Completed Todos</div>
+                    ${renderTodos(completedTodos)}
+                ` : ''}
+            </div>
+        `;
+
+        // Add event listeners for checkboxes
+        todoList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const todoId = parseInt(e.target.dataset.todoId);
+                toggleTodo(todoId, e.target.checked);
+            });
+        });
+    }
+
+    function renderTodos(todos) {
+        return todos.map(todo => `
+            <div class="todo-item ${todo.completed ? 'completed' : ''}">
+                <input 
+                    type="checkbox"
+                    class="todo-checkbox"
+                    data-todo-id="${todo.id}"
+                    ${todo.completed ? 'checked' : ''}
+                >
+                <span class="todo-text">${todo.text}</span>
+                <img 
+                    class="preview-image" 
+                    src="data:image/png;base64,${todo.preview}" 
+                    alt="Preview"
+                >
             </div>
         `).join('');
     }
