@@ -8,8 +8,11 @@
             alt="Selection Preview"
         >
         <div class="input-group">
-            <input type="text" id="todoInput" placeholder="Enter a todo...">
-            <button onclick="addTodo()">Add Todo</button>
+            <div class="input-row">
+                <input type="text" id="todoInput" placeholder="Enter a todo...">
+                <button onclick="addTodo()">Add Todo</button>
+            </div>
+            <div id="errorMessage" class="error-message">Please enter a todo text</div>
         </div>
     </div>
 
@@ -31,8 +34,14 @@
     
     .input-group {
         display: flex;
+        flex-direction: column;
         gap: 8px;
         flex: 1;
+    }
+    
+    .input-row {
+        display: flex;
+        gap: 8px;
     }
     
     .hidden {
@@ -40,8 +49,8 @@
     }
     
     #selectionPreview {
-        width: 64px;
-        height: 64px;
+        width: 192px;
+        height: 192px;
         object-fit: contain;
         background: #f0f0f0;
         border-radius: 4px;
@@ -66,23 +75,52 @@
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 8px 8px 8px 0;
+        padding: 24px 8px 24px 0;
         border-bottom: 1px solid #e5e5e5;
-        gap: 12px;
+        gap: 0;
     }
     
     .todo-checkbox {
-        margin-left: 0;
-        margin-right: 8px;
+        margin: 0 0 0 16px;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        flex: none;
+        cursor: pointer;
     }
     
     .todo-text {
         flex: 1;
+        text-align: left;
+        margin-left: 12px;
+        margin-right: 12px;
+        cursor: text;
+    }
+    
+    .todo-text-input {
+        flex: 1;
+        margin-left: 12px;
+        margin-right: 12px;
+        font-family: Inter, sans-serif;
+        font-size: inherit;
+        border: none;
+        background: transparent;
+        padding: 0;
+        color: inherit;
+    }
+    
+    .todo-text-input:focus {
+        outline: none;
+        border-bottom: 2px solid #18A0FB;
+    }
+    
+    .preview-image {
+        margin-left: auto;
+        width: auto;
+        height: 75px;
     }
     
     .preview-image, #selectionPreview {
-        width: 64px;
-        height: 64px;
         object-fit: contain;
         background: #f0f0f0;
         border-radius: 4px;
@@ -107,23 +145,77 @@
     .completed .preview-image {
         opacity: 0.6;
     }
+    
+    .error-message {
+        color: #F24822;
+        font-size: 12px;
+        margin-top: 4px;
+        display: none;
+    }
+    
+    .delete-button {
+        color: #999;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        margin-left: 8px;
+    }
+    
+    .delete-button:hover {
+        background: #f0f0f0;
+        color: #F24822;
+    }
+    
+    .drag-handle {
+        cursor: grab;
+        color: #999;
+        padding: 4px;
+        margin-right: 0;
+    }
+    
+    .drag-handle:hover {
+        color: #333;
+    }
+    
+    .todo-item.dragging {
+        opacity: 0.5;
+        background: #f5f5f5;
+    }
+    
+    .todo-item.drag-over {
+        border-top: 2px solid #18A0FB;
+    }
 </style>
 
 <script>
+    let draggedItem = null;
+    let todos = [];  // Keep track of todos in memory
+    
     function addTodo() {
         const input = document.getElementById('todoInput');
+        const errorMessage = document.getElementById('errorMessage');
         const text = input.value.trim();
         
-        if (text) {
-            parent.postMessage({ 
-                pluginMessage: { 
-                    type: 'add-todo',
-                    text: text
-                }
-            }, '*');
-            input.value = '';
+        if (!text) {
+            errorMessage.style.display = 'block';
+            return;
         }
+        
+        errorMessage.style.display = 'none';
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'add-todo',
+                text: text
+            }
+        }, '*');
+        input.value = '';
     }
+
+    // Also clear error when user starts typing
+    document.getElementById('todoInput').addEventListener('input', () => {
+        document.getElementById('errorMessage').style.display = 'none';
+    });
 
     function toggleTodo(todoId, completed) {
         parent.postMessage({ 
@@ -158,7 +250,8 @@
         }
     }
 
-    function updateTodoList(todos) {
+    function updateTodoList(newTodos) {
+        todos = newTodos;  // Update our local copy
         const todoList = document.getElementById('todoList');
         const activeTodos = todos.filter(todo => !todo.completed);
         const completedTodos = todos.filter(todo => todo.completed);
@@ -179,31 +272,176 @@
             </div>
         `;
 
-        // Add event listeners for checkboxes
+        // Add event listeners for checkboxes and drag-drop
         todoList.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
             checkbox.addEventListener('change', (e) => {
                 const todoId = parseInt(e.target.dataset.todoId);
                 toggleTodo(todoId, e.target.checked);
             });
         });
+
+        // Add drag and drop listeners
+        todoList.querySelectorAll('.todo-item').forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragend', handleDragEnd);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragenter', handleDragEnter);
+            item.addEventListener('dragleave', handleDragLeave);
+        });
     }
 
     function renderTodos(todos) {
         return todos.map(todo => `
-            <div class="todo-item ${todo.completed ? 'completed' : ''}">
+            <div class="todo-item ${todo.completed ? 'completed' : ''}"
+                 data-todo-id="${todo.id}" 
+                 draggable="true">
+                <span class="drag-handle">⋮⋮</span>
                 <input 
                     type="checkbox"
                     class="todo-checkbox"
                     data-todo-id="${todo.id}"
                     ${todo.completed ? 'checked' : ''}
                 >
-                <span class="todo-text">${todo.text}</span>
+                <span 
+                    class="todo-text" 
+                    onclick="startEditing(event, ${todo.id})"
+                >${todo.text}</span>
                 <img 
                     class="preview-image" 
                     src="data:image/png;base64,${todo.preview}" 
                     alt="Preview"
                 >
+                <span 
+                    class="delete-button" 
+                    onclick="deleteTodo(${todo.id})"
+                >×</span>
             </div>
         `).join('');
+    }
+
+    function deleteTodo(todoId) {
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'delete-todo',
+                todoId: todoId
+            }
+        }, '*');
+    }
+
+    // Drag and drop handler functions
+    function handleDragStart(e) {
+        draggedItem = e.target;
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.todo-item').forEach(item => {
+            item.classList.remove('drag-over');
+        });
+    }
+
+    function handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDragEnter(e) {
+        e.target.closest('.todo-item')?.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+        e.target.closest('.todo-item')?.classList.remove('drag-over');
+    }
+
+    function handleDrop(e) {
+        e.preventDefault();
+        const dropTarget = e.target.closest('.todo-item');
+        if (!dropTarget || dropTarget === draggedItem) return;
+
+        // Get the IDs of the dragged and drop target items
+        const draggedId = parseInt(draggedItem.dataset.todoId);
+        const dropId = parseInt(dropTarget.dataset.todoId);
+        
+        // Find the indices of both items
+        const draggedIndex = todos.findIndex(t => t.id === draggedId);
+        const dropIndex = todos.findIndex(t => t.id === dropId);
+        
+        // Reorder the array
+        const [removed] = todos.splice(draggedIndex, 1);
+        todos.splice(dropIndex, 0, removed);
+        
+        // Update the UI and save the new order
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'reorder-todos',
+                todos: todos
+            }
+        }, '*');
+        
+        updateTodoList(todos);
+    }
+
+    function startEditing(event, todoId) {
+        const textSpan = event.target;
+        const currentText = textSpan.textContent;
+        
+        // Create input element
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentText;
+        input.className = 'todo-text-input';
+        
+        // Replace span with input
+        textSpan.parentNode.replaceChild(input, textSpan);
+        input.focus();
+        
+        // Handle saving on enter or blur
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                saveEdit(input, todoId);
+            }
+            if (e.key === 'Escape') {
+                cancelEdit(input, currentText);
+            }
+        });
+        
+        input.addEventListener('blur', () => {
+            saveEdit(input, todoId);
+        });
+        
+        // Prevent dragging while editing
+        const todoItem = input.closest('.todo-item');
+        todoItem.setAttribute('draggable', 'false');
+    }
+
+    function saveEdit(input, todoId) {
+        const newText = input.value.trim();
+        if (newText) {
+            parent.postMessage({ 
+                pluginMessage: { 
+                    type: 'update-todo-text',
+                    todoId: todoId,
+                    text: newText
+                }
+            }, '*');
+        }
+        
+        // Re-enable dragging
+        const todoItem = input.closest('.todo-item');
+        todoItem.setAttribute('draggable', 'true');
+    }
+
+    function cancelEdit(input, originalText) {
+        const span = document.createElement('span');
+        span.className = 'todo-text';
+        span.textContent = originalText;
+        input.parentNode.replaceChild(span, input);
+        
+        // Re-enable dragging
+        const todoItem = span.closest('.todo-item');
+        todoItem.setAttribute('draggable', 'true');
     }
 </script>

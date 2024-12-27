@@ -1,4 +1,4 @@
-figma.showUI(__html__, { width: 300, height: 400 });
+figma.showUI(__html__, { width: 600, height: 600 });
 
 // Function to send preview of selected node
 async function sendSelectionPreview() {
@@ -7,7 +7,7 @@ async function sendSelectionPreview() {
         const selectedNode = selection[0];
         const imageData = await selectedNode.exportAsync({
             format: 'PNG',
-            constraint: { type: 'SCALE', value: 0.5 }
+            constraint: { type: 'WIDTH', value: 384 }
         });
         
         figma.ui.postMessage({
@@ -53,7 +53,7 @@ figma.ui.onmessage = async function (msg) {
         // Create a preview image of the selected node
         const imageData = await selectedNode.exportAsync({
             format: 'PNG',
-            constraint: { type: 'SCALE', value: 0.5 } // Scale down to 50%
+            constraint: { type: 'WIDTH', value: 384 }
         });
 
         // Store the node ID and todo text
@@ -61,16 +61,14 @@ figma.ui.onmessage = async function (msg) {
         const todoText = msg.text;
         
         try {
-            const todos = figma.root.getPluginData('todos') 
-                ? JSON.parse(figma.root.getPluginData('todos')) 
-                : [];
+            const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
             
-            todos.push({
+            todos.unshift({
                 id: Date.now(),
                 nodeId: nodeId,
                 text: todoText,
                 completed: false,
-                preview: figma.base64Encode(imageData) // Store preview as base64
+                preview: figma.base64Encode(imageData)
             });
             
             figma.root.setPluginData('todos', JSON.stringify(todos));
@@ -104,5 +102,37 @@ figma.ui.onmessage = async function (msg) {
 
     if (msg.type === 'close-plugin') {
         figma.closePlugin();
+    }
+
+    if (msg.type === 'delete-todo') {
+        try {
+            const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
+            const updatedTodos = todos.filter(todo => todo.id !== msg.todoId);
+            figma.root.setPluginData('todos', JSON.stringify(updatedTodos));
+            
+            figma.ui.postMessage({
+                type: 'todos-updated',
+                todos: updatedTodos
+            });
+        } catch (error) {
+            console.error('Error deleting todo:', error);
+        }
+    }
+
+    if (msg.type === 'update-todo-text') {
+        try {
+            const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
+            const todo = todos.find(t => t.id === msg.todoId);
+            if (todo) {
+                todo.text = msg.text;
+                figma.root.setPluginData('todos', JSON.stringify(todos));
+                figma.ui.postMessage({
+                    type: 'todos-updated',
+                    todos: todos
+                });
+            }
+        } catch (error) {
+            console.error('Error updating todo text:', error);
+        }
     }
 };
