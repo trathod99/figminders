@@ -122,7 +122,13 @@
         cursor: text;
         overflow: hidden;
         text-overflow: ellipsis;
-        white-space: nowrap;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.4;
+        white-space: normal;
+        min-height: 1.4em;
+        padding: 6px 0;
     }
     
     .todo-text-input {
@@ -133,8 +139,11 @@
         font-size: inherit;
         border: none;
         background: transparent;
-        padding: 0;
+        padding: 6px 0;
         color: inherit;
+        line-height: 1.4;
+        min-height: 1.4em;
+        resize: none;
     }
     
     .todo-text-input:focus {
@@ -435,32 +444,33 @@
         const textSpan = event.target;
         const currentText = textSpan.textContent;
         
-        // Create input element
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.value = currentText;
-        input.className = 'todo-text-input';
+        // Create textarea element instead of input
+        const textarea = document.createElement('textarea');
+        textarea.value = currentText;
+        textarea.className = 'todo-text-input';
+        textarea.rows = 2;
         
-        // Replace span with input
-        textSpan.parentNode.replaceChild(input, textSpan);
-        input.focus();
+        // Replace span with textarea
+        textSpan.parentNode.replaceChild(textarea, textSpan);
+        textarea.focus();
         
         // Handle saving on enter or blur
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                saveEdit(input, todoId);
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault(); // Prevent new line on Enter
+                saveEdit(textarea, todoId);
             }
             if (e.key === 'Escape') {
-                cancelEdit(input, currentText);
+                cancelEdit(textarea, currentText);
             }
         });
         
-        input.addEventListener('blur', () => {
-            saveEdit(input, todoId);
+        textarea.addEventListener('blur', () => {
+            saveEdit(textarea, todoId);
         });
         
         // Prevent dragging while editing
-        const todoItem = input.closest('.todo-item');
+        const todoItem = textarea.closest('.todo-item');
         todoItem.setAttribute('draggable', 'false');
     }
 
