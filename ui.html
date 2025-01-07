@@ -112,11 +112,15 @@
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 24px 8px 24px 0;
-        border-bottom: 1px solid #e5e5e5;
-        gap: 0;
+        padding: 12px 8px;
+        background: white;
+        border: 1px solid #E5E5E5;
+        border-radius: 6px;
+        margin-bottom: 8px;
         min-height: 75px;
-        box-sizing: content-box;
+        box-sizing: border-box;
+        position: relative;
+        z-index: 1;
     }
     
     .todo-checkbox {
@@ -294,49 +298,28 @@
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
     
-    .todo-group {
-        margin-left: 24px;
-        border-left: 2px solid #E5E5E5;
-        padding-left: 12px;
-    }
-    
-    .todo-group-container {
+    .todo-hierarchy {
         margin-bottom: 16px;
-        border: 1px solid #E5E5E5;
-        border-radius: 8px;
-        overflow: hidden;
+        position: relative;
     }
     
-    .todo-group-container > .todo-item {
-        background: white;
-        border-bottom: 1px solid #E5E5E5;
-        margin-bottom: 0;
-        padding-left: 8px;
+    .todo-child {
+        position: relative;
+        margin-left: 20px;
+        padding-left: 12px;
+        border-left: 2px solid #E5E5E5;
+        margin-top: -4px;
+        padding-top: 4px;
     }
     
-    .todo-group {
-        background: #FAFAFA;
-        padding: 8px 0;
-        margin-left: 0;
-        border-top: 1px solid #E5E5E5;
-    }
-    
-    .todo-group .todo-item {
-        padding-left: 48px;
-        border-bottom: 1px solid #EAEAEA;
-        background: transparent;
-    }
-    
-    .todo-group .todo-item:last-child {
-        border-bottom: none;
-    }
-    
-    /* Standalone todos */
-    .todo-section > .todo-item {
-        background: white;
-        border: 1px solid #E5E5E5;
-        margin-bottom: 8px;
-        border-radius: 8px;
+    .todo-child::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 24px;
+        width: 12px;
+        height: 2px;
+        background: #E5E5E5;
     }
     
     .preview-container {
@@ -398,6 +381,19 @@
     
     @keyframes spin {
         to { transform: rotate(360deg); }
+    }
+    
+    .todo-group-container,
+    .todo-group {
+        display: none !important;
+    }
+    
+    .todo-hierarchy {
+        /* outline: 1px solid blue; */
+    }
+    
+    .todo-child {
+        /* outline: 1px solid red; */
     }
 </style>
 
@@ -713,9 +709,15 @@
             btn.classList.toggle('active', btn.innerText.toLowerCase().includes(mode));
         });
         
+        const todoList = document.getElementById('todoList');
+        if (!todoList) return;
+
         if (mode === 'smart') {
             // Show loading overlay
             document.querySelector('.loading-overlay').classList.add('active');
+            
+            // Clear the list while loading
+            todoList.innerHTML = '';
             
             // Request smart groups organization
             parent.postMessage({ 
@@ -725,7 +727,8 @@
                 }
             }, '*');
         } else {
-            updateTodoList(todos);
+            // Manual mode - render todos without grouping
+            renderManualMode();
         }
     }
     
@@ -752,92 +755,158 @@
     }
 
     function updateSmartGroups(groups) {
+        console.log('Received groups data:', groups);
+        console.log('Groups structure:', JSON.stringify(groups, null, 2));
+        
         const todoList = document.getElementById('todoList');
         if (!todoList) return;
+
+        // Only proceed if we're still in smart mode
+        if (currentDisplayMode !== 'smart') return;
+
+        // Hide loading overlay
+        document.querySelector('.loading-overlay').classList.remove('active');
 
         const activeTodos = todos.filter(todo => !todo.completed);
         const completedTodos = todos.filter(todo => todo.completed);
 
-        if (currentDisplayMode === 'smart') {
-            todoList.innerHTML = `
+        todoList.innerHTML = `
+            <div class="todo-section">
+                ${renderGroupedTodos(groups, activeTodos)}
+            </div>
+            
+            ${completedTodos.length > 0 ? `
                 <div class="todo-section">
-                    ${renderGroupedTodos(groups, activeTodos)}
+                    <div class="section-title">Completed</div>
+                    ${renderGroupedTodos(groups, completedTodos)}
                 </div>
-                
-                ${completedTodos.length > 0 ? `
-                    <div class="todo-section">
-                        <div class="section-title">Completed</div>
-                        ${renderGroupedTodos(groups, completedTodos)}
-                    </div>
-                ` : ''}
-            `;
+            ` : ''}
+        `;
 
-            // Re-add event listeners
-            addTodoEventListeners();
-        }
+        // Re-add event listeners
+        addTodoEventListeners();
     }
 
     function renderGroupedTodos(groups, filteredTodos) {
         console.log('\n📋 === SMART GROUP RENDERING START ===');
         console.log(`Total todos to process: ${filteredTodos.length}`);
-        console.log('Groups:', groups);
         
+        const groupsMap = new Map(groups);
         const processedIds = new Set();
         
-        // First render grouped todos
-        console.log('\n🔄 Processing Groups:');
-        const groupedContent = groups
-            .filter(([nodeId, children]) => {
-                // Find parent todo by nodeId (e.g., "2:6")
-                const parent = filteredTodos.find(t => t.nodeId === nodeId);
-                if (!parent) {
-                    console.log(`❌ Could not find todo with nodeId: "${nodeId}"`);
-                    return false;
-                }
-                console.log(`✅ Found group parent: "${parent.text}" (Node: ${parent.nodeName})`);
-                return true;
-            })
-            .map(([nodeId, children]) => {
-                const parentTodo = filteredTodos.find(t => t.nodeId === nodeId);
-                processedIds.add(parentTodo.id);
-                
-                // Filter and find the actual todo objects for children
-                const validChildren = children
-                    .filter(child => {
-                        const found = filteredTodos.find(t => t.nodeId === child.nodeId);
-                        if (found) {
-                            processedIds.add(found.id);
-                            return true;
-                        }
-                        return false;
-                    })
-                    .map(child => filteredTodos.find(t => t.nodeId === child.nodeId));
-
-                console.log(`📦 Processing group "${parentTodo.text}" with ${validChildren.length} children`);
-                
-                if (validChildren.length === 0) {
-                    console.log(`  └─ No children, rendering as standalone`);
-                    return renderTodos([parentTodo]);
-                }
-                
-                console.log(`  └─ Rendering as group with ${validChildren.length} children`);
-                return `
-                    <div class="todo-group-container">
-                        ${renderTodos([parentTodo])}
-                        <div class="todo-group">
-                            ${renderTodos(validChildren)}
-                        </div>
+        // Log the hierarchy structure
+        console.log('\n📊 Relationship of nodes:');
+        function logHierarchy(nodeId, depth = 0) {
+            const todo = todos.find(t => t.nodeId === nodeId);
+            if (!todo) return;
+            
+            const prefix = '  '.repeat(depth) + (depth > 0 ? '- ' : '');
+            console.log(`${prefix}${todo.text} (${todo.nodeName})`);
+            
+            const children = groupsMap.get(nodeId) || [];
+            children.forEach(child => {
+                logHierarchy(child.nodeId, depth + 1);
+            });
+        }
+        
+        // Helper function to render a todo item
+        function renderTodoItem(todo) {
+            return `
+                <div class="todo-item ${todo.completed ? 'completed' : ''}">
+                    <span class="drag-handle">⋮⋮</span>
+                    <input 
+                        type="checkbox"
+                        class="todo-checkbox"
+                        data-todo-id="${todo.id}"
+                        ${todo.completed ? 'checked' : ''}
+                    >
+                    <span 
+                        class="todo-text" 
+                        onclick="startEditing(event, ${todo.id})"
+                    >${todo.text}</span>
+                    <div class="preview-container">
+                        <img 
+                            class="preview-image" 
+                            src="data:image/png;base64,${todo.preview}" 
+                            alt="Preview"
+                            onclick="selectOriginalNode('${todo.nodeId}')"
+                        >
+                        <span class="layer-name">${todo.nodeName}</span>
                     </div>
-                `;
-            }).join('');
-
-        // Handle remaining todos
-        const remainingTodos = filteredTodos.filter(todo => !processedIds.has(todo.id));
-        console.log('\n📌 Remaining Ungrouped Todos:');
-        remainingTodos.forEach(todo => {
-            console.log(`   • "${todo.text}" (Node: "${todo.nodeName}")`);
+                    <span 
+                        class="delete-button" 
+                        onclick="deleteTodo(${todo.id})"
+                    >×</span>
+                </div>
+            `;
+        }
+        
+        // Helper function to render a todo and its children recursively
+        function renderTodoHierarchy(todo) {
+            if (!todo || processedIds.has(todo.id)) return '';
+            
+            processedIds.add(todo.id);
+            
+            const children = groupsMap.get(todo.nodeId) || [];
+            console.log(`\nProcessing "${todo.text}" (NodeID: ${todo.nodeId})`);
+            console.log('Potential children:', children.map(c => `"${c.text}" (${c.nodeId})`));
+            
+            const validChildren = children
+                .filter(child => {
+                    // Match by nodeId instead of object reference
+                    const isIncluded = filteredTodos.some(t => t.nodeId === child.nodeId);
+                    const isUnprocessed = !processedIds.has(child.id);
+                    console.log(`Child "${child.text}": included=${isIncluded}, unprocessed=${isUnprocessed}`);
+                    return isIncluded && isUnprocessed;
+                });
+            
+            console.log(`Found ${validChildren.length} valid children for "${todo.text}"`);
+            
+            // Map child references to actual filtered todo objects
+            const childTodos = validChildren.map(child => 
+                filteredTodos.find(t => t.nodeId === child.nodeId)
+            );
+            
+            const html = `
+                <div class="todo-hierarchy">
+                    ${renderTodoItem(todo)}
+                    ${childTodos.length > 0 ? `
+                        <div class="todo-child">
+                            ${childTodos.map(child => renderTodoHierarchy(child)).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            return html;
+        }
+        
+        // Log hierarchy for each top-level node
+        Array.from(groupsMap.entries()).forEach(([nodeId, children]) => {
+            if (!children.some(child => 
+                Array.from(groupsMap.values()).flat().some(t => t.nodeId === nodeId)
+            )) {
+                logHierarchy(nodeId);
+            }
         });
         
+        // Find and render top-level todos
+        const allChildrenIds = new Set(
+            Array.from(groupsMap.values())
+                .flat()
+                .map(child => child.nodeId)
+        );
+        
+        const topLevelTodos = filteredTodos.filter(todo => !allChildrenIds.has(todo.nodeId));
+        
+        // Render the hierarchy starting from top-level todos
+        const groupedContent = topLevelTodos
+            .filter(todo => !processedIds.has(todo.id))
+            .map(todo => renderTodoHierarchy(todo))
+            .join('');
+        
+        // Handle any remaining unprocessed todos
+        const remainingTodos = filteredTodos.filter(todo => !processedIds.has(todo.id));
         const remainingContent = remainingTodos.length > 0 ? renderTodos(remainingTodos) : '';
         
         return groupedContent + remainingContent;
@@ -863,5 +932,27 @@
                 item.addEventListener('dragleave', handleDragLeave);
             });
         }
+    }
+
+    function renderManualMode() {
+        const todoList = document.getElementById('todoList');
+        const activeTodos = todos.filter(todo => !todo.completed);
+        const completedTodos = todos.filter(todo => todo.completed);
+        
+        todoList.innerHTML = `
+            <div class="todo-section">
+                ${renderTodos(activeTodos)}
+            </div>
+            
+            ${completedTodos.length > 0 ? `
+                <div class="todo-section">
+                    <div class="section-title">Completed</div>
+                    ${renderTodos(completedTodos)}
+                </div>
+            ` : ''}
+        `;
+        
+        // Re-add event listeners
+        addTodoEventListeners();
     }
 </script>

@@ -253,45 +253,64 @@ function organizeSmartGroups(todos) {
     const groups = new Map();
     const processedNodes = new Set();
 
-    // First pass: find parent-child relationships
-    todos.forEach((todo1, index) => {
-        if (processedNodes.has(todo1.nodeId)) {
-            console.log(`⏭️ Skipping processed nodeId: ${todo1.nodeId}`);
-            return;
+    // Helper function to get all descendant nodeIds recursively
+    function getAllDescendants(nodeId, depth = 0) {
+        const node = figma.getNodeById(nodeId);
+        if (!node) return [];
+        
+        let descendants = [];
+        
+        // If node has children property
+        if ('children' in node) {
+            // For each child
+            node.children.forEach(child => {
+                // Find if this child has a corresponding todo
+                const childTodo = todos.find(t => t.nodeId === child.id);
+                if (childTodo) {
+                    descendants.push({
+                        todo: childTodo,
+                        depth: depth + 1
+                    });
+                }
+                
+                // Recursively get descendants of this child
+                const childDescendants = getAllDescendants(child.id, depth + 1);
+                descendants = [...descendants, ...childDescendants];
+            });
         }
+        
+        return descendants;
+    }
 
-        console.log(`\n🔍 Checking relationships for nodeId: ${todo1.nodeId}`);
-        const relationships = getNodeRelationships(todo1.nodeId);
-        if (!relationships) return;
-
-        // Find todos that are children of this node
-        const childTodos = todos.filter(todo2 => 
-            todo2.nodeId !== todo1.nodeId && 
-            relationships.childrenIds.includes(todo2.nodeId)
-        );
-
-        if (childTodos.length > 0) {
-            console.log(`  📎 Creating group with ${childTodos.length} child todos`);
-            console.log(`  Parent NodeId: ${todo1.nodeId}`);
-            console.log(`  Children NodeIds: [${childTodos.map(t => t.nodeId).join(', ')}]`);
-            
-            groups.set(todo1.nodeId, childTodos);
-            processedNodes.add(todo1.nodeId);
-            childTodos.forEach(child => processedNodes.add(child.nodeId));
-        }
-    });
-
-    // Debug the groups Map
-    console.log('\n📊 Groups Map contents:');
-    groups.forEach((children, parentNodeId) => {
-        console.log(`  Parent NodeId: ${parentNodeId}`);
-        console.log(`  Children NodeIds: [${children.map(c => c.nodeId).join(', ')}]`);
-    });
-
-    // Second pass: handle remaining unprocessed todos
+    // Process each todo to find its complete hierarchy
     todos.forEach(todo => {
-        if (!processedNodes.has(todo.nodeId)) {
-            console.log(`  ➕ Adding standalone todo with NodeId: ${todo.nodeId}`);
+        if (processedNodes.has(todo.nodeId)) return;
+
+        // Get the node for this todo
+        const node = figma.getNodeById(todo.nodeId);
+        if (!node) return;
+
+        console.log(`\n📍 Processing todo: "${todo.text}" (Node: ${todo.nodeName})`);
+
+        // Get all descendants with their depth information
+        const descendants = getAllDescendants(todo.nodeId);
+        
+        if (descendants.length > 0) {
+            console.log(`📎 Creating hierarchical group for "${todo.text}"`);
+            console.log(`  Parent NodeId: ${todo.nodeId}`);
+            console.log('  Descendants:');
+            descendants.forEach(({ todo: childTodo, depth }) => {
+                console.log(`  ${'  '.repeat(depth)}- "${childTodo.text}" (${childTodo.nodeName})`);
+            });
+            
+            // Store just the todo objects in the groups map
+            groups.set(todo.nodeId, descendants.map(d => d.todo));
+            processedNodes.add(todo.nodeId);
+            descendants.forEach(({ todo: childTodo }) => {
+                processedNodes.add(childTodo.nodeId);
+            });
+        } else {
+            // Add as standalone todo
             groups.set(todo.nodeId, []);
             processedNodes.add(todo.nodeId);
         }
