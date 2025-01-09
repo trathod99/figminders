@@ -1,11 +1,12 @@
 <div id="app">
-    <h2>Figminders</h2>
-    
-    <div class="display-mode">
-        <label class="mode-label">Display Mode:</label>
-        <div class="mode-toggle">
-            <button class="mode-button active" onclick="setDisplayMode('manual')">Manual</button>
-            <button class="mode-button" onclick="setDisplayMode('smart')">Smart Grouping</button>
+    <div class="header-row">
+        <h2>Figminders</h2>
+        <div class="display-mode">
+            <label class="mode-label">Display Mode:</label>
+            <div class="mode-toggle">
+                <button class="mode-button active" onclick="setDisplayMode('smart')">Smart Grouping</button>
+                <button class="mode-button" onclick="setDisplayMode('manual')">Manual</button>
+            </div>
         </div>
     </div>
 
@@ -17,7 +18,11 @@
         >
         <div class="input-group">
             <div class="input-row">
-                <input type="text" id="todoInput" placeholder="Enter a todo...">
+                <textarea 
+                    id="todoInput" 
+                    placeholder="Enter a todo..." 
+                    rows="1"
+                ></textarea>
                 <button onclick="addTodo()">Add Todo</button>
             </div>
             <div id="errorMessage" class="error-message">Please enter a todo text</div>
@@ -36,20 +41,21 @@
 <style>
     body {
         font-family: Inter, sans-serif;
-        padding: 20px;
-        background: #fafafa;
+        margin: 0;
+        padding: 0;
+        background: #F8F8F8;
     }
     
     #app {
-        background: white;
-        border-radius: 8px;
-        padding: 24px;
+        padding: 20px;
+        min-height: 100vh;
+        background: #F8F8F8;
     }
     
     .add-todo {
         display: flex;
         gap: 12px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
         align-items: center;
         padding: 24px;
         border-radius: 8px;
@@ -69,6 +75,7 @@
     .input-row {
         display: flex;
         gap: 8px;
+        align-items: flex-start;
     }
     
     .hidden {
@@ -80,15 +87,20 @@
         height: 150px;
     }
     
-    input {
+    textarea#todoInput {
         flex: 1;
         padding: 8px 12px;
         border: 1px solid #e5e5e5;
         border-radius: 6px;
         font-size: 14px;
+        font-family: Inter, sans-serif;
+        resize: none;
+        overflow: hidden;
+        min-height: 36px;
+        line-height: 20px;
     }
     
-    input:focus {
+    textarea#todoInput:focus {
         outline: none;
         border-color: #18A0FB;
         box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
@@ -152,8 +164,7 @@
     
     .todo-text-input {
         flex: 1;
-        margin-left: 12px;
-        margin-right: 12px;
+        margin: 0 12px;
         font-family: Inter, sans-serif;
         font-size: inherit;
         border: none;
@@ -161,13 +172,20 @@
         padding: 6px 0;
         color: inherit;
         line-height: 1.4;
-        min-height: 1.4em;
+        height: 1.4em;
+        width: calc(100% - 200px);
         resize: none;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        box-sizing: border-box;
+        border-bottom: 2px solid transparent;
     }
     
     .todo-text-input:focus {
         outline: none;
-        border-bottom: 2px solid #18A0FB;
+        border-bottom-color: #18A0FB;
+        margin-bottom: -2px;
     }
     
     .preview-image {
@@ -257,14 +275,14 @@
         font-size: 16px;
         font-weight: 500;
         color: #333;
-        margin: 0 0 20px 0;
+        margin: 0;
     }
     
     .display-mode {
         display: flex;
         align-items: center;
         gap: 12px;
-        margin-bottom: 20px;
+        margin-bottom: 0;
     }
     
     .mode-label {
@@ -420,12 +438,25 @@
     .smart-mode .drag-handle {
         display: none;
     }
+    
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .input-row button {
+        height: 36px;
+        padding: 0 16px;
+        flex-shrink: 0;
+    }
 </style>
 
 <script>
     let draggedItem = null;
     let todos = [];  // Keep track of todos in memory
-    let currentDisplayMode = 'manual';
+    let currentDisplayMode = 'smart';
     let nodeHierarchies = new Map();
     
     function addTodo() {
@@ -494,9 +525,15 @@
         
         if (msg.type === 'todos-updated') {
             todos = msg.todos;
-            // Only update the display if we're in manual mode
-            // (smart mode updates are handled by smart-groups-ready)
-            if (currentDisplayMode === 'manual') {
+            // Initialize with smart grouping
+            if (currentDisplayMode === 'smart') {
+                parent.postMessage({ 
+                    pluginMessage: { 
+                        type: 'organize-smart-groups',
+                        todos: todos
+                    }
+                }, '*');
+            } else {
                 updateTodoList(todos);
             }
         }
@@ -1014,4 +1051,18 @@
             todoChild.classList.toggle('collapsed');
         }
     }
+
+    // Add auto-resize functionality to the textarea
+    document.getElementById('todoInput').addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+    
+    // Update the Enter key handler for textarea
+    document.getElementById('todoInput').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            addTodo();
+        }
+    });
 </script>
