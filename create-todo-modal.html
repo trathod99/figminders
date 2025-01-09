@@ -1,0 +1,88 @@
+<div class="modal">
+  <input 
+    type="text" 
+    id="todoInput" 
+    placeholder="Enter todo text..." 
+    value="Todo: ">
+  <div class="button-row">
+    <button id="createButton">Create</button>
+    <button id="cancelButton">Cancel</button>
+  </div>
+</div>
+
+<style>
+  body {
+    font-family: Inter, sans-serif;
+    margin: 0;
+    padding: 16px;
+  }
+  
+  .modal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  
+  input:focus {
+    outline: none;
+    border-color: #18A0FB;
+    box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
+  }
+  
+  .button-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  
+  #createButton {
+    background: #18A0FB;
+    color: white;
+  }
+  
+  #cancelButton {
+    background: #f5f5f5;
+    color: #333;
+  }
+</style>
+
+<script>
+document.getElementById('todoInput').focus();
+document.getElementById('todoInput').select();
+
+document.getElementById('createButton').onclick = () => {
+  const text = document.getElementById('todoInput').value;
+  parent.postMessage({ pluginMessage: { type: 'create-with-text', text } }, '*');
+};
+
+document.getElementById('cancelButton').onclick = () => {
+  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+};
+
+// Handle Enter key
+document.getElementById('todoInput').onkeydown = (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('createButton').click();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('cancelButton').click();
+  }
+};
+</script> 

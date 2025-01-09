@@ -1,9 +1,19 @@
 {
     "name": "Figminders",
-    "id": "your.plugin.id",
+    "id": "your-plugin-id",
     "api": "1.0.0",
     "main": "code.js",
     "ui": "ui.html",
     "editorType": ["figma"],
-    "permissions": ["currentuser", "activeusers"]
+    "permissions": ["currentuser", "activeusers"],
+    "menu": [
+      {
+        "name": "Create Todo",
+        "command": "create-todo"
+      },
+      {
+        "name": "View Todos",
+        "command": "view-todos"
+      }
+    ]
   }

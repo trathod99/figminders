@@ -1,4 +1,102 @@
+const CREATE_TODO_MODAL = `
+<div class="modal">
+  <input 
+    type="text" 
+    id="todoInput" 
+    placeholder="Enter todo text..." 
+    value="Todo: ">
+  <div class="button-row">
+    <button id="createButton">Create</button>
+    <button id="cancelButton">Cancel</button>
+  </div>
+</div>
+
+<style>
+  body {
+    font-family: Inter, sans-serif;
+    margin: 0;
+    padding: 16px;
+  }
+  
+  .modal {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e5e5e5;
+    border-radius: 6px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  
+  input:focus {
+    outline: none;
+    border-color: #18A0FB;
+    box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
+  }
+  
+  .button-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  
+  #createButton {
+    background: #18A0FB;
+    color: white;
+  }
+  
+  #cancelButton {
+    background: #f5f5f5;
+    color: #333;
+  }
+</style>
+
+<script>
+document.getElementById('todoInput').focus();
+document.getElementById('todoInput').select();
+
+document.getElementById('createButton').onclick = () => {
+  const text = document.getElementById('todoInput').value;
+  parent.postMessage({ pluginMessage: { type: 'create-with-text', text } }, '*');
+};
+
+document.getElementById('cancelButton').onclick = () => {
+  parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+};
+
+// Handle Enter key
+document.getElementById('todoInput').onkeydown = (e) => {
+  if (e.key === 'Enter') {
+    document.getElementById('createButton').click();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('cancelButton').click();
+  }
+};
+</script>
+`;
+
 figma.showUI(__html__, { width: 600, height: 600 });
+
+// At the top of the file, add command handling
+if (figma.command === 'create-todo') {
+    createTodoFromContext();
+} else if (figma.command === 'view-todos') {
+    showTodoList();
+}
 
 // Function to send preview of selected node
 async function sendSelectionPreview() {
@@ -37,7 +135,59 @@ figma.ui.postMessage({
     todos: initialTodos
 });
 
+// Create a single message handler at the top level
 figma.ui.onmessage = async function (msg) {
+    // Handle create-todo-modal messages
+    if (msg.type === 'create-with-text') {
+        const selection = figma.currentPage.selection;
+        const selectedNode = selection[0];
+        const nodeId = selectedNode.id;
+        const nodeName = selectedNode.name;
+        
+        // Create a preview image
+        const imageData = await selectedNode.exportAsync({
+            format: 'PNG',
+            constraint: { type: 'WIDTH', value: 384 }
+        });
+
+        try {
+            const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
+            
+            todos.unshift({
+                id: Date.now(),
+                nodeId: nodeId,
+                nodeName: nodeName,
+                text: msg.text,
+                completed: false,
+                preview: figma.base64Encode(imageData),
+                priority: 'P2',
+                priorityClass: 'p2'
+            });
+            
+            figma.root.setPluginData('todos', JSON.stringify(todos));
+            figma.notify(`Todo created for "${nodeName}"`);
+            
+            // Instead of closing and reopening, just show the main UI
+            showTodoList();
+            
+            // Send the updated todos to the UI
+            figma.ui.postMessage({
+                type: 'todos-updated',
+                todos: todos
+            });
+        } catch (error) {
+            console.error('Error creating todo:', error);
+            figma.notify('Error creating todo');
+        }
+        return;
+    }
+
+    if (msg.type === 'cancel') {
+        figma.closePlugin();
+        return;
+    }
+
+    // Handle all other existing message types
     if (msg.type === 'add-todo') {
         const selection = figma.currentPage.selection;
         if (selection.length === 0) {
@@ -332,4 +482,25 @@ function organizeSmartGroups(todos) {
     });
 
     return groups;
+}
+
+// Add this new function
+async function createTodoFromContext() {
+    const selection = figma.currentPage.selection;
+    if (selection.length === 0) {
+        figma.notify('Please select an object first');
+        return;
+    }
+
+    // Show a small modal for text input
+    figma.showUI(CREATE_TODO_MODAL, { 
+        width: 300, 
+        height: 120,
+        title: 'Create Todo'
+    });
+}
+
+// Add this new function to show the todo list
+function showTodoList() {
+    figma.showUI(__html__, { width: 600, height: 600 });
 }
