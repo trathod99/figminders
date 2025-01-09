@@ -64,15 +64,24 @@ figma.ui.onmessage = async function (msg) {
         try {
             const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
             
-            todos.unshift({
+            const newTodo = {
                 id: Date.now(),
                 nodeId: nodeId,
                 nodeName: nodeName,
                 text: todoText,
                 completed: false,
-                preview: figma.base64Encode(imageData)
+                preview: figma.base64Encode(imageData),
+                priority: msg.priority,
+                priorityClass: msg.priorityClass
+            };
+            
+            console.log('Saving todo with priority data:', {
+                text: todoText,
+                priority: msg.priority,
+                priorityClass: msg.priorityClass
             });
             
+            todos.unshift(newTodo);
             figma.root.setPluginData('todos', JSON.stringify(todos));
             
             // Send updated todos back to UI

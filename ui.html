@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
 <div id="app">
     <div class="header-row">
         <h2>Figminders</h2>
@@ -18,11 +20,38 @@
         >
         <div class="input-group">
             <div class="input-row">
-                <textarea 
-                    id="todoInput" 
-                    placeholder="Enter a todo..." 
-                    rows="1"
-                ></textarea>
+                <div class="input-container">
+                    <textarea 
+                        id="todoInput" 
+                        placeholder="Enter a todo..." 
+                        rows="1"
+                    ></textarea>
+                    <div class="priority-select">
+                        <button class="priority-button" onclick="togglePriorityDropdown(event)">
+                            <i class="fa-solid fa-flag"></i>
+                            <span class="priority-text">P2</span>
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        <div class="priority-dropdown">
+                            <div class="priority-option p1" onclick="selectPriority('P1', this)">
+                                <i class="fa-solid fa-flag"></i>
+                                <span>P1</span>
+                            </div>
+                            <div class="priority-option p2" onclick="selectPriority('P2', this)">
+                                <i class="fa-solid fa-flag"></i>
+                                <span>P2</span>
+                            </div>
+                            <div class="priority-option p3" onclick="selectPriority('P3', this)">
+                                <i class="fa-solid fa-flag"></i>
+                                <span>P3</span>
+                            </div>
+                            <div class="priority-option p4" onclick="selectPriority('P4', this)">
+                                <i class="fa-solid fa-flag"></i>
+                                <span>P4</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <button onclick="addTodo()">Add Todo</button>
             </div>
             <div id="errorMessage" class="error-message">Please enter a todo text</div>
@@ -98,6 +127,7 @@
         overflow: hidden;
         min-height: 36px;
         line-height: 20px;
+        padding-right: 80px;
     }
     
     textarea#todoInput:focus {
@@ -124,10 +154,10 @@
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 12px 8px;
-        background: white;
-        border: 1px solid #E5E5E5;
-        border-radius: 6px;
+        padding: 12px 16px !important;
+        background: white !important;
+        border: 1px solid #E5E5E5 !important;
+        border-radius: 6px !important;
         margin-bottom: 8px;
         min-height: 75px;
         box-sizing: border-box;
@@ -136,12 +166,72 @@
     }
     
     .todo-checkbox {
+        display: none;
+    }
+    
+    .custom-checkbox {
+        width: 20px;
+        height: 20px;
+        border: 2px solid #E5E5E5;
+        border-radius: 4px;
         margin: 0 0 0 16px;
-        padding: 0;
-        width: 32px;
-        height: 32px;
-        flex: none;
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        transition: all 0.2s ease;
+        background: white;
+    }
+    
+    .p1 .custom-checkbox {
+        border-color: #F24822;
+    }
+    
+    .p2 .custom-checkbox {
+        border-color: #FF9800;
+    }
+    
+    .p3 .custom-checkbox {
+        border-color: #FFD600;
+    }
+    
+    .p4 .custom-checkbox {
+        border-color: #9E9E9E;
+    }
+    
+    .p1 .custom-checkbox:hover,
+    .p1.todo-item.checked .custom-checkbox {
+        background-color: #F24822;
+        border-color: #F24822;
+    }
+    
+    .p2 .custom-checkbox:hover,
+    .p2.todo-item.checked .custom-checkbox {
+        background-color: #FF9800;
+        border-color: #FF9800;
+    }
+    
+    .p3 .custom-checkbox:hover,
+    .p3.todo-item.checked .custom-checkbox {
+        background-color: #FFD600;
+        border-color: #FFD600;
+    }
+    
+    .p4 .custom-checkbox:hover,
+    .p4.todo-item.checked .custom-checkbox {
+        background-color: #9E9E9E;
+        border-color: #9E9E9E;
+    }
+    
+    .todo-item.checked .custom-checkbox::after {
+        content: '✓';
+        color: white;
+        font-size: 14px;
+    }
+    
+    .custom-checkbox:hover {
+        border-color: #18A0FB;
     }
     
     .todo-text {
@@ -451,6 +541,84 @@
         padding: 0 16px;
         flex-shrink: 0;
     }
+    
+    .input-container {
+        flex: 1;
+        position: relative;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .priority-select {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+    }
+    
+    .priority-button {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        cursor: pointer;
+        color: #666;
+    }
+    
+    .priority-button:hover {
+        background: transparent;
+    }
+    
+    .priority-button .fa-chevron-down {
+        font-size: 10px;
+        margin-left: 2px;
+        color: #999;
+    }
+    
+    .priority-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 100;
+        min-width: 100px;
+    }
+    
+    .priority-dropdown.show {
+        display: block;
+    }
+    
+    .priority-option {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+    
+    .priority-option:hover {
+        background: #f5f5f5;
+    }
+    
+    .priority-option .flag {
+        font-size: 12px;
+    }
+    
+    /* Priority colors */
+    .p1 .fa-flag { color: #F24822; }
+    .p2 .fa-flag { color: #FF9800; }
+    .p3 .fa-flag { color: #FFD600; }
+    .p4 .fa-flag { color: #9E9E9E; }
 </style>
 
 <script>
@@ -469,11 +637,31 @@
             return;
         }
         
+        // Get the current priority
+        const priorityButton = document.querySelector('.priority-button');
+        const priority = priorityButton.querySelector('.priority-text').textContent;
+        // Get priorityClass from the selected option instead of the button
+        const priorityClass = priority.toLowerCase().replace(/\s+/g, '');  // Convert "P1" to "p1"
+        
+        console.log('Creating todo with:', {
+            text,
+            priority,
+            priorityClass,
+            expectedColor: {
+                'p1': '#F24822',
+                'p2': '#FF9800',
+                'p3': '#FFD600',
+                'p4': '#9E9E9E'
+            }[priorityClass]
+        });
+        
         errorMessage.style.display = 'none';
         parent.postMessage({ 
             pluginMessage: { 
                 type: 'add-todo',
-                text: text
+                text: text,
+                priority: priority,
+                priorityClass: priorityClass
             }
         }, '*');
         input.value = '';
@@ -623,7 +811,7 @@
 
     function renderTodos(todos) {
         return todos.map(todo => `
-            <div class="todo-item ${todo.completed ? 'completed' : ''}"
+            <div class="todo-item ${todo.completed ? 'completed' : ''} ${todo.priorityClass || 'p2'}"
                  data-todo-id="${todo.id}" 
                  draggable="true">
                 <span class="drag-handle">⋮⋮</span>
@@ -633,6 +821,10 @@
                     data-todo-id="${todo.id}"
                     ${todo.completed ? 'checked' : ''}
                 >
+                <div 
+                    class="custom-checkbox"
+                    onclick="toggleTodo(${todo.id}, ${!todo.completed})"
+                ></div>
                 <span 
                     class="todo-text" 
                     onclick="startEditing(event, ${todo.id})"
@@ -901,12 +1093,27 @@
         
         // Helper function to render a todo item
         function renderTodoItem(todo, hasChildren = false) {
+            console.log('Rendering todo:', {
+                text: todo.text,
+                priority: todo.priority,
+                priorityClass: todo.priorityClass,
+                expectedColor: {
+                    'p1': '#F24822',
+                    'p2': '#FF9800',
+                    'p3': '#FFD600',
+                    'p4': '#9E9E9E'
+                }[todo.priorityClass || 'p2']
+            });
+            
             const handleIcon = currentDisplayMode === 'smart' 
                 ? (hasChildren ? `<span class="chevron" onclick="toggleCollapse(event)">▼</span>` : `<span style="width: 20px"></span>`)
                 : `<span class="drag-handle">⋮⋮</span>`;
 
+            const priorityClass = todo.priorityClass || 'p2';  // Ensure we have a default
+            const completedClass = todo.completed ? 'completed checked' : '';
+
             return `
-                <div class="todo-item ${todo.completed ? 'completed' : ''}" data-todo-id="${todo.id}">
+                <div class="todo-item ${todo.completed ? 'completed' : ''} ${todo.priorityClass || 'p2'}" data-todo-id="${todo.id}">
                     ${handleIcon}
                     <input 
                         type="checkbox"
@@ -914,6 +1121,10 @@
                         data-todo-id="${todo.id}"
                         ${todo.completed ? 'checked' : ''}
                     >
+                    <div 
+                        class="custom-checkbox"
+                        onclick="toggleTodo(${todo.id}, ${!todo.completed})"
+                    ></div>
                     <span 
                         class="todo-text" 
                         onclick="startEditing(event, ${todo.id})"
@@ -1065,4 +1276,26 @@
             addTodo();
         }
     });
+
+    // Add these new functions
+    function togglePriorityDropdown(event) {
+        event.preventDefault();
+        const dropdown = event.currentTarget.nextElementSibling;
+        dropdown.classList.toggle('show');
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function closeDropdown(e) {
+            if (!e.target.closest('.priority-select')) {
+                dropdown.classList.remove('show');
+                document.removeEventListener('click', closeDropdown);
+            }
+        });
+    }
+    
+    function selectPriority(priority, element) {
+        const button = element.closest('.priority-select').querySelector('.priority-button');
+        button.querySelector('.priority-text').textContent = priority;
+        button.className = 'priority-button ' + element.className.split(' ')[1];
+        element.closest('.priority-dropdown').classList.remove('show');
+    }
 </script>
