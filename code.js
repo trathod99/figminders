@@ -250,6 +250,9 @@ function organizeSmartGroups(todos) {
     console.log('🔄 Starting Smart Group organization');
     console.log(`📋 Processing ${todos.length} todos`);
     
+    // Only organize active (uncompleted) todos
+    const activeTodos = todos.filter(todo => !todo.completed);
+    
     const groups = new Map();
     const processedNodes = new Set();
 
@@ -260,30 +263,33 @@ function organizeSmartGroups(todos) {
         
         let descendants = [];
         
-        // If node has children property
-        if ('children' in node) {
-            // For each child
-            node.children.forEach(child => {
-                // Find if this child has a corresponding todo
-                const childTodo = todos.find(t => t.nodeId === child.id);
+        // Helper function to recursively search for todos in the node tree
+        function searchNodeForTodos(currentNode, currentDepth) {
+            if (!('children' in currentNode)) return;
+            
+            for (const child of currentNode.children) {
+                // Check if this node has a corresponding todo
+                const childTodo = activeTodos.find(t => t.nodeId === child.id);
                 if (childTodo) {
                     descendants.push({
                         todo: childTodo,
-                        depth: depth + 1
+                        depth: currentDepth + 1
                     });
                 }
                 
-                // Recursively get descendants of this child
-                const childDescendants = getAllDescendants(child.id, depth + 1);
-                descendants = [...descendants, ...childDescendants];
-            });
+                // Continue searching this branch regardless of whether we found a todo
+                searchNodeForTodos(child, currentDepth + 1);
+            }
         }
+        
+        // Start the recursive search from our node
+        searchNodeForTodos(node, depth);
         
         return descendants;
     }
 
-    // Process each todo to find its complete hierarchy
-    todos.forEach(todo => {
+    // Process each active todo to find its complete hierarchy
+    activeTodos.forEach(todo => {
         if (processedNodes.has(todo.nodeId)) return;
 
         // Get the node for this todo

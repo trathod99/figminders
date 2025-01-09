@@ -395,6 +395,31 @@
     .todo-child {
         /* outline: 1px solid red; */
     }
+    
+    .chevron {
+        cursor: pointer;
+        color: #999;
+        padding: 4px;
+        width: 20px;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    
+    .chevron:hover {
+        color: #333;
+    }
+    
+    .chevron.collapsed {
+        transform: rotate(-90deg);
+    }
+    
+    .todo-child.collapsed {
+        display: none;
+    }
+    
+    .smart-mode .drag-handle {
+        display: none;
+    }
 </style>
 
 <script>
@@ -429,6 +454,27 @@
     });
 
     function toggleTodo(todoId, completed) {
+        if (currentDisplayMode === 'smart') {
+            // Show loading overlay immediately
+            document.querySelector('.loading-overlay').classList.add('active');
+        }
+
+        // Update the todo in our local state first
+        todos = todos.map(t => 
+            t.id === todoId ? {...t, completed: completed} : t
+        );
+
+        // If in smart mode, reorganize groups immediately with updated todos
+        if (currentDisplayMode === 'smart') {
+            parent.postMessage({ 
+                pluginMessage: { 
+                    type: 'organize-smart-groups',
+                    todos: todos
+                }
+            }, '*');
+        }
+
+        // Then update the server state
         parent.postMessage({ 
             pluginMessage: { 
                 type: 'toggle-todo',
@@ -447,7 +493,12 @@
         }
         
         if (msg.type === 'todos-updated') {
-            updateTodoList(msg.todos);
+            todos = msg.todos;
+            // Only update the display if we're in manual mode
+            // (smart mode updates are handled by smart-groups-ready)
+            if (currentDisplayMode === 'manual') {
+                updateTodoList(todos);
+            }
         }
 
         if (msg.type === 'selection-preview') {
@@ -712,6 +763,9 @@
         const todoList = document.getElementById('todoList');
         if (!todoList) return;
 
+        // Add or remove smart-mode class
+        document.getElementById('app').classList.toggle('smart-mode', mode === 'smart');
+
         if (mode === 'smart') {
             // Show loading overlay
             document.querySelector('.loading-overlay').classList.add('active');
@@ -727,7 +781,6 @@
                 }
             }, '*');
         } else {
-            // Manual mode - render todos without grouping
             renderManualMode();
         }
     }
@@ -810,10 +863,14 @@
         }
         
         // Helper function to render a todo item
-        function renderTodoItem(todo) {
+        function renderTodoItem(todo, hasChildren = false) {
+            const handleIcon = currentDisplayMode === 'smart' 
+                ? (hasChildren ? `<span class="chevron" onclick="toggleCollapse(event)">▼</span>` : `<span style="width: 20px"></span>`)
+                : `<span class="drag-handle">⋮⋮</span>`;
+
             return `
-                <div class="todo-item ${todo.completed ? 'completed' : ''}">
-                    <span class="drag-handle">⋮⋮</span>
+                <div class="todo-item ${todo.completed ? 'completed' : ''}" data-todo-id="${todo.id}">
+                    ${handleIcon}
                     <input 
                         type="checkbox"
                         class="todo-checkbox"
@@ -848,28 +905,20 @@
             processedIds.add(todo.id);
             
             const children = groupsMap.get(todo.nodeId) || [];
-            console.log(`\nProcessing "${todo.text}" (NodeID: ${todo.nodeId})`);
-            console.log('Potential children:', children.map(c => `"${c.text}" (${c.nodeId})`));
-            
             const validChildren = children
                 .filter(child => {
-                    // Match by nodeId instead of object reference
                     const isIncluded = filteredTodos.some(t => t.nodeId === child.nodeId);
                     const isUnprocessed = !processedIds.has(child.id);
-                    console.log(`Child "${child.text}": included=${isIncluded}, unprocessed=${isUnprocessed}`);
                     return isIncluded && isUnprocessed;
                 });
             
-            console.log(`Found ${validChildren.length} valid children for "${todo.text}"`);
-            
-            // Map child references to actual filtered todo objects
             const childTodos = validChildren.map(child => 
                 filteredTodos.find(t => t.nodeId === child.nodeId)
             );
             
-            const html = `
+            return `
                 <div class="todo-hierarchy">
-                    ${renderTodoItem(todo)}
+                    ${renderTodoItem(todo, childTodos.length > 0)}
                     ${childTodos.length > 0 ? `
                         <div class="todo-child">
                             ${childTodos.map(child => renderTodoHierarchy(child)).join('')}
@@ -877,8 +926,6 @@
                     ` : ''}
                 </div>
             `;
-            
-            return html;
         }
         
         // Log hierarchy for each top-level node
@@ -954,5 +1001,17 @@
         
         // Re-add event listeners
         addTodoEventListeners();
+    }
+
+    // Add this new function to handle collapse/expand
+    function toggleCollapse(event) {
+        const chevron = event.target;
+        const todoItem = chevron.closest('.todo-item');
+        const todoChild = todoItem.nextElementSibling;
+        
+        chevron.classList.toggle('collapsed');
+        if (todoChild && todoChild.classList.contains('todo-child')) {
+            todoChild.classList.toggle('collapsed');
+        }
     }
 </script>
