@@ -135,6 +135,46 @@ figma.ui.postMessage({
     todos: initialTodos
 });
 
+// Add this helper function near the top of the file
+function detectPriority(text) {
+    // Convert to lowercase for easier matching
+    const lowerText = text.toLowerCase();
+    let cleanText = text;
+    let priority = 'P4';
+    let priorityClass = 'p4';
+    
+    // Array of priority patterns to check and remove
+    const patterns = [
+        { regex: /\bp1\b/i, priority: 'P1', class: 'p1' },
+        { regex: /\bpriority\s*1\b/i, priority: 'P1', class: 'p1' },
+        { regex: /\bp2\b/i, priority: 'P2', class: 'p2' },
+        { regex: /\bpriority\s*2\b/i, priority: 'P2', class: 'p2' },
+        { regex: /\bp3\b/i, priority: 'P3', class: 'p3' },
+        { regex: /\bpriority\s*3\b/i, priority: 'P3', class: 'p3' },
+        { regex: /\bp4\b/i, priority: 'P4', class: 'p4' },
+        { regex: /\bpriority\s*4\b/i, priority: 'P4', class: 'p4' }
+    ];
+    
+    // Check patterns and clean text
+    for (const pattern of patterns) {
+        if (pattern.regex.test(lowerText)) {
+            priority = pattern.priority;
+            priorityClass = pattern.class;
+            // Remove the priority text and any surrounding whitespace
+            cleanText = cleanText.replace(pattern.regex, '').trim();
+            // Remove any double spaces that might have been created
+            cleanText = cleanText.replace(/\s+/g, ' ');
+            break;
+        }
+    }
+    
+    return { 
+        priority, 
+        priorityClass, 
+        cleanText 
+    };
+}
+
 // Create a single message handler at the top level
 figma.ui.onmessage = async function (msg) {
     // Handle create-todo-modal messages
@@ -153,19 +193,22 @@ figma.ui.onmessage = async function (msg) {
         try {
             const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
             
+            // Detect priority and clean text
+            const { priority, priorityClass, cleanText } = detectPriority(msg.text);
+            
             todos.unshift({
                 id: Date.now(),
                 nodeId: nodeId,
                 nodeName: nodeName,
-                text: msg.text,
+                text: cleanText,  // Use the cleaned text without priority
                 completed: false,
                 preview: figma.base64Encode(imageData),
-                priority: 'P2',
-                priorityClass: 'p2'
+                priority: priority,
+                priorityClass: priorityClass
             });
             
             figma.root.setPluginData('todos', JSON.stringify(todos));
-            figma.notify(`Todo created for "${nodeName}"`);
+            figma.notify(`Todo created for "${nodeName}" with ${priority} priority`);
             
             // Instead of closing and reopening, just show the main UI
             showTodoList();
@@ -209,7 +252,8 @@ figma.ui.onmessage = async function (msg) {
         // Store the node ID and todo text
         const nodeId = selectedNode.id;
         const nodeName = selectedNode.name;
-        const todoText = msg.text;
+        // Detect priority and clean text
+        const { priority, priorityClass, cleanText } = detectPriority(msg.text);
         
         try {
             const todos = JSON.parse(figma.root.getPluginData('todos') || '[]');
@@ -218,21 +262,23 @@ figma.ui.onmessage = async function (msg) {
                 id: Date.now(),
                 nodeId: nodeId,
                 nodeName: nodeName,
-                text: todoText,
+                text: cleanText,
                 completed: false,
                 preview: figma.base64Encode(imageData),
-                priority: msg.priority,
-                priorityClass: msg.priorityClass
+                priority: priority,
+                priorityClass: priorityClass
             };
             
-            console.log('Saving todo with priority data:', {
-                text: todoText,
-                priority: msg.priority,
-                priorityClass: msg.priorityClass
+            console.log('Saving todo with detected priority:', {
+                text: cleanText,
+                priority: priority,
+                priorityClass: priorityClass
             });
             
             todos.unshift(newTodo);
             figma.root.setPluginData('todos', JSON.stringify(todos));
+            
+            figma.notify(`Todo created with ${priority} priority`);
             
             // Send updated todos back to UI
             figma.ui.postMessage({

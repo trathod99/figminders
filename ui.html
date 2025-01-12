@@ -18,41 +18,15 @@
             alt="Selection Preview"
             class="hidden"
         >
-        <div class="input-group">
-            <div class="input-row">
-                <div class="input-container">
-                    <textarea 
-                        id="todoInput" 
-                        placeholder="Enter a todo..." 
-                        rows="1"
-                    ></textarea>
-                    <div class="priority-select">
-                        <button class="priority-button" onclick="togglePriorityDropdown(event)">
-                            <i class="fa-solid fa-flag"></i>
-                            <span class="priority-text">P2</span>
-                            <i class="fa-solid fa-chevron-down"></i>
-                        </button>
-                        <div class="priority-dropdown">
-                            <div class="priority-option p1" onclick="selectPriority('P1', this)">
-                                <i class="fa-solid fa-flag"></i>
-                                <span>P1</span>
-                            </div>
-                            <div class="priority-option p2" onclick="selectPriority('P2', this)">
-                                <i class="fa-solid fa-flag"></i>
-                                <span>P2</span>
-                            </div>
-                            <div class="priority-option p3" onclick="selectPriority('P3', this)">
-                                <i class="fa-solid fa-flag"></i>
-                                <span>P3</span>
-                            </div>
-                            <div class="priority-option p4" onclick="selectPriority('P4', this)">
-                                <i class="fa-solid fa-flag"></i>
-                                <span>P4</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <button onclick="addTodo()">Add Todo</button>
+        <div class="add-todo-section">
+            <div class="add-todo-form">
+                <input 
+                    type="text" 
+                    id="todoInput" 
+                    placeholder="Enter a todo..." 
+                    class="todo-input"
+                >
+                <button id="addTodoBtn" class="add-button">Add Todo</button>
             </div>
             <div id="errorMessage" class="error-message">Please enter a todo text</div>
         </div>
@@ -1298,4 +1272,21 @@
         button.className = 'priority-button ' + element.className.split(' ')[1];
         element.closest('.priority-dropdown').classList.remove('show');
     }
+
+    document.getElementById('addTodoBtn').onclick = () => {
+        const todoText = document.getElementById('todoInput').value;
+        
+        if (todoText.trim() === '') {
+            return;
+        }
+        
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'add-todo', 
+                text: todoText
+            } 
+        }, '*');
+        
+        document.getElementById('todoInput').value = '';
+    };
 </script>
