@@ -66,7 +66,6 @@
         padding: 24px;
         border-radius: 8px;
         background: white;
-        border-bottom: none;
     }
     
     .add-todo-section {
@@ -145,12 +144,12 @@
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 12px 16px 12px 4px !important;
+        padding: 4px 16px 4px 4px !important;
         background: white !important;
-        border: 1px solid #E5E5E5 !important;
+        border: 1px solid #EEEEEE !important;
         border-radius: 6px !important;
         margin-bottom: 8px;
-        min-height: 75px;
+        height: 120px;
         box-sizing: border-box;
         position: relative;
         z-index: 1;
@@ -164,7 +163,7 @@
         width: 20px;
         height: 20px;
         border: 2px solid #E5E5E5;
-        border-radius: 4px;
+        border-radius: 50%;
         margin-left: 4px !important;
         cursor: pointer;
         display: flex;
@@ -240,6 +239,7 @@
         white-space: normal;
         min-height: 1.4em;
         padding: 6px 0;
+        color: #333333;
     }
     
     .todo-text-input {
@@ -268,14 +268,223 @@
         margin-bottom: -2px;
     }
     
+    .preview-container {
+        margin-left: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        position: relative;
+    }
+    
+    .layer-name {
+        font-size: 11px;
+        color: #666;
+        max-width: 100px;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        margin-top: 4px;
+    }
+    
+    .loading-overlay {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.8);
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+    
+    .loading-overlay.active {
+        display: flex;
+    }
+    
+    .loading-spinner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .loading-spinner::before {
+        content: '';
+        width: 24px;
+        height: 24px;
+        border: 2px solid #E5E5E5;
+        border-top-color: #18A0FB;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    .loading-text {
+        font-size: 13px;
+        color: #333;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    .todo-group-container,
+    .todo-group {
+        display: none !important;
+    }
+    
+    .todo-hierarchy {
+        /* outline: 1px solid blue; */
+    }
+    
+    .todo-child {
+        /* outline: 1px solid red; */
+    }
+    
+    .chevron {
+        cursor: pointer;
+        color: #999;
+        padding: 4px;
+        width: 20px;
+        text-align: center;
+        transition: transform 0.2s ease;
+    }
+    
+    .chevron:hover {
+        color: #333;
+    }
+    
+    .chevron.collapsed {
+        transform: rotate(-90deg);
+    }
+    
+    .todo-child.collapsed {
+        display: none;
+    }
+    
+    .smart-mode .drag-handle {
+        display: none;
+    }
+    
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .input-row button {
+        height: 36px;
+        padding: 0 16px;
+        flex-shrink: 0;
+    }
+    
+    .input-container {
+        flex: 1;
+        position: relative;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .priority-select {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+    }
+    
+    .priority-button {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        cursor: pointer;
+        color: #666;
+    }
+    
+    .priority-button:hover {
+        background: transparent;
+    }
+    
+    .priority-button .fa-chevron-down {
+        font-size: 10px;
+        margin-left: 2px;
+        color: #999;
+    }
+    
+    .priority-dropdown {
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: white;
+        border: 1px solid #e5e5e5;
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 100;
+        min-width: 100px;
+    }
+    
+    .priority-dropdown.show {
+        display: block;
+    }
+    
+    .priority-option {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+    
+    .priority-option:hover {
+        background: #f5f5f5;
+    }
+    
+    .priority-option .flag {
+        font-size: 12px;
+    }
+    
+    /* Priority colors */
+    .p1 .fa-flag { color: #F24822; }
+    .p2 .fa-flag { color: #FF9800; }
+    .p3 .fa-flag { color: #FFD600; }
+    .p4 .fa-flag { color: #9E9E9E; }
+    
+    .preview-layer-name {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: rgba(0, 0, 0, 0.3);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
     .preview-image {
         margin-left: auto;
-        max-width: 100px;
-        max-height: 75px;
+        max-width: 120px;
+        height: 55px;
         width: auto;
-        height: auto;
         cursor: pointer;
         transition: transform 0.1s ease;
+        object-fit: contain;
+        box-sizing: border-box;
     }
     
     .preview-image:hover {
@@ -323,7 +532,7 @@
         font-size: 16px;
         padding: 4px 8px;
         border-radius: 4px;
-        margin-left: 8px;
+        margin-left: 20px;
     }
     
     .delete-button:hover {
