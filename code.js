@@ -110,12 +110,14 @@ async function sendSelectionPreview() {
         
         figma.ui.postMessage({
             type: 'selection-preview',
-            preview: figma.base64Encode(imageData)
+            preview: figma.base64Encode(imageData),
+            nodeName: selectedNode.name
         });
     } else {
         figma.ui.postMessage({
             type: 'selection-preview',
-            preview: null
+            preview: null,
+            nodeName: null
         });
     }
 }

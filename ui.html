@@ -13,11 +13,14 @@
     </div>
 
     <div class="add-todo">
-        <img 
-            id="selectionPreview" 
-            alt="Selection Preview"
-            class="hidden"
-        >
+        <div class="preview-container">
+            <img 
+                id="selectionPreview" 
+                alt="Selection Preview"
+                class="hidden"
+            >
+            <div id="previewLayerName" class="preview-layer-name hidden"></div>
+        </div>
         <div class="add-todo-section">
             <div class="add-todo-form">
                 <input 
@@ -57,15 +60,27 @@
     
     .add-todo {
         display: flex;
-        gap: 12px;
+        gap: 24px;
         margin-bottom: 20px;
-        align-items: center;
+        align-items: flex-start;
         padding: 24px;
         border-radius: 8px;
         background: white;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05),
-                    0 4px 12px rgba(0, 0, 0, 0.1);
         border-bottom: none;
+    }
+    
+    .add-todo-section {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .add-todo-form {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 100%;
     }
     
     .input-group {
@@ -86,31 +101,32 @@
     }
     
     #selectionPreview {
-        width: 150px;
-        height: 150px;
+        width: 210px;
+        height: 210px;
+        object-fit: contain;
+        background: #F5F5F5;
+        border-radius: 8px;
+        padding: 16px;
     }
     
-    textarea#todoInput {
+    .todo-input {
         flex: 1;
         padding: 8px 12px;
         border: 1px solid #e5e5e5;
         border-radius: 6px;
         font-size: 14px;
         font-family: Inter, sans-serif;
-        resize: none;
-        overflow: hidden;
         min-height: 36px;
         line-height: 20px;
-        padding-right: 80px;
     }
     
-    textarea#todoInput:focus {
+    .todo-input:focus {
         outline: none;
         border-color: #18A0FB;
         box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
     }
     
-    button {
+    .add-button {
         padding: 8px 16px;
         background: #18A0FB;
         color: white;
@@ -119,16 +135,17 @@
         cursor: pointer;
         font-weight: 500;
         transition: background 0.2s ease;
+        width: 100%;
     }
     
-    button:hover {
+    .add-button:hover {
         background: #0F9EF3;
     }
     
     .todo-item {
         display: flex;
         align-items: center;
-        padding: 12px 16px !important;
+        padding: 12px 16px 12px 4px !important;
         background: white !important;
         border: 1px solid #E5E5E5 !important;
         border-radius: 6px !important;
@@ -148,7 +165,7 @@
         height: 20px;
         border: 2px solid #E5E5E5;
         border-radius: 4px;
-        margin: 0 0 0 16px;
+        margin-left: 4px !important;
         cursor: pointer;
         display: flex;
         align-items: center;
@@ -211,8 +228,7 @@
     .todo-text {
         flex: 1;
         text-align: left;
-        margin-left: 12px;
-        margin-right: 12px;
+        margin: 0 12px;
         cursor: text;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -360,6 +376,7 @@
         background: #E5E5E5;
         padding: 2px;
         border-radius: 6px;
+        height: 32px;
     }
     
     .mode-button {
@@ -369,6 +386,8 @@
         border-radius: 4px;
         font-size: 13px;
         font-weight: 500;
+        border: none;
+        cursor: pointer;
     }
     
     .mode-button:hover {
@@ -405,11 +424,12 @@
     }
     
     .preview-container {
+        margin-left: auto;
         display: flex;
         flex-direction: column;
         align-items: center;
-        margin-left: auto;
         gap: 4px;
+        position: relative;
     }
     
     .layer-name {
@@ -593,6 +613,22 @@
     .p2 .fa-flag { color: #FF9800; }
     .p3 .fa-flag { color: #FFD600; }
     .p4 .fa-flag { color: #9E9E9E; }
+    
+    .preview-layer-name {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: rgba(0, 0, 0, 0.3);
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 </style>
 
 <script>
@@ -678,7 +714,7 @@
     }
 
     // Listen for messages from the plugin code
-    window.onmessage = (event) => {
+    window.onmessage = async (event) => {
         const msg = event.data.pluginMessage;
         
         if (msg.type === 'no-selection') {
@@ -702,11 +738,16 @@
 
         if (msg.type === 'selection-preview') {
             const previewImg = document.getElementById('selectionPreview');
+            const layerName = document.getElementById('previewLayerName');
+            
             if (msg.preview) {
                 previewImg.src = `data:image/png;base64,${msg.preview}`;
                 previewImg.classList.remove('hidden');
+                layerName.textContent = msg.nodeName;
+                layerName.classList.remove('hidden');
             } else {
                 previewImg.classList.add('hidden');
+                layerName.classList.add('hidden');
             }
         }
 
