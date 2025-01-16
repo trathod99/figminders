@@ -103,20 +103,30 @@ async function sendSelectionPreview() {
     const selection = figma.currentPage.selection;
     if (selection.length > 0) {
         const selectedNode = selection[0];
-        const imageData = await selectedNode.exportAsync({
+        
+        // Generate two sizes of preview
+        const thumbnailData = await selectedNode.exportAsync({
             format: 'PNG',
-            constraint: { type: 'WIDTH', value: 384 }
+            constraint: { type: 'WIDTH', value: 120 }  // Small thumbnail for todo items
+        });
+        
+        const largePreviewData = await selectedNode.exportAsync({
+            format: 'PNG',
+            constraint: { type: 'WIDTH', value: 400 }  // Larger preview for hover/selection
         });
         
         figma.ui.postMessage({
             type: 'selection-preview',
-            preview: figma.base64Encode(imageData),
+            preview: figma.base64Encode(largePreviewData),  // Use large preview for selection
+            largePreview: figma.base64Encode(largePreviewData),  // Store for hover
+            thumbnail: figma.base64Encode(thumbnailData),  // Store for todo items
             nodeName: selectedNode.name
         });
     } else {
         figma.ui.postMessage({
             type: 'selection-preview',
             preview: null,
+            largePreview: null,
             nodeName: null
         });
     }
@@ -186,10 +196,15 @@ figma.ui.onmessage = async function (msg) {
         const nodeId = selectedNode.id;
         const nodeName = selectedNode.name;
         
-        // Create a preview image
-        const imageData = await selectedNode.exportAsync({
+        // Create two sizes of preview images
+        const thumbnailData = await selectedNode.exportAsync({
             format: 'PNG',
-            constraint: { type: 'WIDTH', value: 384 }
+            constraint: { type: 'WIDTH', value: 120 }
+        });
+        
+        const largePreviewData = await selectedNode.exportAsync({
+            format: 'PNG',
+            constraint: { type: 'WIDTH', value: 1200 }  // Increased size for better quality
         });
 
         try {
@@ -202,9 +217,10 @@ figma.ui.onmessage = async function (msg) {
                 id: Date.now(),
                 nodeId: nodeId,
                 nodeName: nodeName,
-                text: cleanText,  // Use the cleaned text without priority
+                text: cleanText,
                 completed: false,
-                preview: figma.base64Encode(imageData),
+                preview: figma.base64Encode(thumbnailData),
+                largePreview: figma.base64Encode(largePreviewData),
                 priority: priority,
                 priorityClass: priorityClass
             });
@@ -245,16 +261,20 @@ figma.ui.onmessage = async function (msg) {
 
         const selectedNode = selection[0];
         
-        // Create a preview image of the selected node
-        const imageData = await selectedNode.exportAsync({
+        // Create two sizes of preview images
+        const thumbnailData = await selectedNode.exportAsync({
             format: 'PNG',
-            constraint: { type: 'WIDTH', value: 384 }
+            constraint: { type: 'WIDTH', value: 120 }
+        });
+        
+        const largePreviewData = await selectedNode.exportAsync({
+            format: 'PNG',
+            constraint: { type: 'WIDTH', value: 1200 }  // Increased size for better quality
         });
 
         // Store the node ID and todo text
         const nodeId = selectedNode.id;
         const nodeName = selectedNode.name;
-        // Detect priority and clean text
         const { priority, priorityClass, cleanText } = detectPriority(msg.text);
         
         try {
@@ -266,7 +286,8 @@ figma.ui.onmessage = async function (msg) {
                 nodeName: nodeName,
                 text: cleanText,
                 completed: false,
-                preview: figma.base64Encode(imageData),
+                preview: figma.base64Encode(thumbnailData),
+                largePreview: figma.base64Encode(largePreviewData),
                 priority: priority,
                 priorityClass: priorityClass
             };

@@ -152,7 +152,6 @@
         height: 120px;
         box-sizing: border-box;
         position: relative;
-        z-index: 1;
     }
     
     .todo-checkbox {
@@ -275,6 +274,29 @@
         align-items: center;
         gap: 4px;
         position: relative;
+    }
+    
+    .preview-hover {
+        display: none;
+        position: fixed;
+        z-index: 999999;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        pointer-events: none;
+    }
+    
+    .preview-hover img {
+        width: 210px;
+        height: 210px;
+        object-fit: contain;
+        background: #F5F5F5;
+        border-radius: 8px;
+        padding: 16px;
+    }
+    
+    .preview-image:hover + .preview-hover {
+        display: block;
     }
     
     .layer-name {
@@ -1056,10 +1078,18 @@
                 <div class="preview-container">
                     <img 
                         class="preview-image" 
-                        src="data:image/png;base64,${todo.preview}" 
+                        src="data:image/png;base64,${todo.thumbnail || todo.preview}" 
                         alt="Preview"
                         onclick="selectOriginalNode('${todo.nodeId}')"
+                        onmouseenter="showPreview(event)"
+                        onmouseleave="hidePreview(event)"
                     >
+                    <div class="preview-hover">
+                        <img 
+                            src="data:image/png;base64,${todo.largePreview || todo.preview}"
+                            alt="Large Preview"
+                        >
+                    </div>
                     <span class="layer-name">${todo.nodeName}</span>
                 </div>
                 <span 
@@ -1300,44 +1330,29 @@
         const groupsMap = new Map(groups);
         const processedIds = new Set();
         
-        // Log the hierarchy structure
-        console.log('\n📊 Relationship of nodes:');
-        function logHierarchy(nodeId, depth = 0) {
-            const todo = todos.find(t => t.nodeId === nodeId);
-            if (!todo) return;
-            
-            const prefix = '  '.repeat(depth) + (depth > 0 ? '- ' : '');
-            console.log(`${prefix}${todo.text} (${todo.nodeName})`);
-            
-            const children = groupsMap.get(nodeId) || [];
-            children.forEach(child => {
-                logHierarchy(child.nodeId, depth + 1);
+        // Helper function to get priority number (P1 = 1, P4 = 4)
+        function getPriorityNumber(todo) {
+            return parseInt(todo.priority?.replace('P', '') || '4');
+        }
+        
+        // Helper function to sort todos by priority
+        function sortByPriority(todos) {
+            return [...todos].sort((a, b) => {
+                return getPriorityNumber(a) - getPriorityNumber(b);
             });
         }
         
         // Helper function to render a todo item
         function renderTodoItem(todo, hasChildren = false) {
-            console.log('Rendering todo:', {
-                text: todo.text,
-                priority: todo.priority,
-                priorityClass: todo.priorityClass,
-                expectedColor: {
-                    'p1': '#F24822',
-                    'p2': '#FF9800',
-                    'p3': '#FFD600',
-                    'p4': '#9E9E9E'
-                }[todo.priorityClass || 'p2']
-            });
-            
             const handleIcon = currentDisplayMode === 'smart' 
                 ? (hasChildren ? `<span class="chevron" onclick="toggleCollapse(event)">▼</span>` : `<span style="width: 20px"></span>`)
                 : `<span class="drag-handle">⋮⋮</span>`;
 
-            const priorityClass = todo.priorityClass || 'p2';  // Ensure we have a default
+            const priorityClass = todo.priorityClass || 'p2';
             const completedClass = todo.completed ? 'completed checked' : '';
 
             return `
-                <div class="todo-item ${todo.completed ? 'completed' : ''} ${todo.priorityClass || 'p2'}" data-todo-id="${todo.id}">
+                <div class="todo-item ${completedClass} ${priorityClass}" data-todo-id="${todo.id}">
                     ${handleIcon}
                     <input 
                         type="checkbox"
@@ -1356,10 +1371,18 @@
                     <div class="preview-container">
                         <img 
                             class="preview-image" 
-                            src="data:image/png;base64,${todo.preview}" 
+                            src="data:image/png;base64,${todo.thumbnail || todo.preview}" 
                             alt="Preview"
                             onclick="selectOriginalNode('${todo.nodeId}')"
+                            onmouseenter="showPreview(event)"
+                            onmouseleave="hidePreview(event)"
                         >
+                        <div class="preview-hover">
+                            <img 
+                                src="data:image/png;base64,${todo.largePreview || todo.preview}"
+                                alt="Large Preview"
+                            >
+                        </div>
                         <span class="layer-name">${todo.nodeName}</span>
                     </div>
                     <span 
@@ -1369,7 +1392,7 @@
                 </div>
             `;
         }
-        
+
         // Helper function to render a todo and its children recursively
         function renderTodoHierarchy(todo) {
             if (!todo || processedIds.has(todo.id)) return '';
@@ -1386,28 +1409,22 @@
             
             const childTodos = validChildren.map(child => 
                 filteredTodos.find(t => t.nodeId === child.nodeId)
-            );
+            ).filter(Boolean);
+            
+            // Sort children by priority
+            const sortedChildTodos = sortByPriority(childTodos);
             
             return `
                 <div class="todo-hierarchy">
                     ${renderTodoItem(todo, childTodos.length > 0)}
                     ${childTodos.length > 0 ? `
                         <div class="todo-child">
-                            ${childTodos.map(child => renderTodoHierarchy(child)).join('')}
+                            ${sortedChildTodos.map(child => renderTodoHierarchy(child)).join('')}
                         </div>
                     ` : ''}
                 </div>
             `;
         }
-        
-        // Log hierarchy for each top-level node
-        Array.from(groupsMap.entries()).forEach(([nodeId, children]) => {
-            if (!children.some(child => 
-                Array.from(groupsMap.values()).flat().some(t => t.nodeId === nodeId)
-            )) {
-                logHierarchy(nodeId);
-            }
-        });
         
         // Find and render top-level todos
         const allChildrenIds = new Set(
@@ -1417,16 +1434,18 @@
         );
         
         const topLevelTodos = filteredTodos.filter(todo => !allChildrenIds.has(todo.nodeId));
+        const sortedTopLevelTodos = sortByPriority(topLevelTodos);
         
         // Render the hierarchy starting from top-level todos
-        const groupedContent = topLevelTodos
+        const groupedContent = sortedTopLevelTodos
             .filter(todo => !processedIds.has(todo.id))
             .map(todo => renderTodoHierarchy(todo))
             .join('');
         
         // Handle any remaining unprocessed todos
         const remainingTodos = filteredTodos.filter(todo => !processedIds.has(todo.id));
-        const remainingContent = remainingTodos.length > 0 ? renderTodos(remainingTodos) : '';
+        const sortedRemainingTodos = sortByPriority(remainingTodos);
+        const remainingContent = sortedRemainingTodos.length > 0 ? renderTodos(sortedRemainingTodos) : '';
         
         return groupedContent + remainingContent;
     }
@@ -1539,4 +1558,52 @@
         
         document.getElementById('todoInput').value = '';
     };
+
+    function updateHoverPosition(event) {
+        const hover = event.target.nextElementSibling;
+        const rect = event.target.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // First position the hover preview to get its dimensions
+        hover.style.left = '0';
+        hover.style.top = '0';
+        hover.style.visibility = 'hidden';
+        hover.style.display = 'block';
+        
+        const hoverWidth = hover.offsetWidth;
+        const hoverHeight = hover.offsetHeight;
+        
+        // Calculate position
+        let left = rect.right + 16;
+        let top = event.clientY - (hoverHeight / 2);
+        
+        // Check right edge
+        if (left + hoverWidth > viewportWidth - 16) {
+            left = rect.left - hoverWidth - 16;
+        }
+        
+        // Check top and bottom edges
+        if (top < 16) {
+            top = 16;
+        } else if (top + hoverHeight > viewportHeight - 16) {
+            top = viewportHeight - hoverHeight - 16;
+        }
+        
+        // Apply final position
+        hover.style.left = `${left}px`;
+        hover.style.top = `${top}px`;
+        hover.style.visibility = 'visible';
+    }
+
+    function showPreview(event) {
+        const hover = event.target.nextElementSibling;
+        updateHoverPosition(event);
+        hover.style.display = 'block';
+    }
+    
+    function hidePreview(event) {
+        const hover = event.target.nextElementSibling;
+        hover.style.display = 'none';
+    }
 </script>
