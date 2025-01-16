@@ -23,12 +23,12 @@
         </div>
         <div class="add-todo-section">
             <div class="add-todo-form">
-                <input 
-                    type="text" 
+                <textarea
                     id="todoInput" 
                     placeholder="Enter a todo..." 
                     class="todo-input"
-                >
+                    onkeydown="handleEnterKey(event)"
+                ></textarea>
                 <button id="addTodoBtn" class="add-button">Add Todo</button>
             </div>
             <div id="errorMessage" class="error-message">Please enter a todo text</div>
@@ -115,8 +115,9 @@
         border-radius: 6px;
         font-size: 14px;
         font-family: Inter, sans-serif;
-        min-height: 36px;
+        min-height: 60px;
         line-height: 20px;
+        resize: none;
     }
     
     .todo-input:focus {
@@ -159,9 +160,9 @@
     }
     
     .custom-checkbox {
-        width: 20px;
-        height: 20px;
-        border: 2px solid #E5E5E5;
+        width: 16px;
+        height: 16px;
+        border: 2.5px solid #E5E5E5;
         border-radius: 50%;
         margin-left: 4px !important;
         cursor: pointer;
@@ -216,7 +217,7 @@
     .todo-item.checked .custom-checkbox::after {
         content: '✓';
         color: white;
-        font-size: 14px;
+        font-size: 11px;
     }
     
     .custom-checkbox:hover {
@@ -239,6 +240,13 @@
         min-height: 1.4em;
         padding: 6px 0;
         color: #333333;
+        font-size: 15px;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.2s ease;
+    }
+    
+    .todo-text:hover {
+        border-bottom: 1px solid #E5E5E5;
     }
     
     .todo-text-input {
@@ -274,6 +282,10 @@
         align-items: center;
         gap: 4px;
         position: relative;
+        justify-content: center;
+        height: 100%;
+        padding: 12px 0;
+        box-sizing: border-box;
     }
     
     .preview-hover {
@@ -507,6 +519,7 @@
         transition: transform 0.1s ease;
         object-fit: contain;
         box-sizing: border-box;
+        margin: 0 auto;
     }
     
     .preview-image:hover {
@@ -868,42 +881,23 @@
     let currentDisplayMode = 'smart';
     let nodeHierarchies = new Map();
     
-    function addTodo() {
-        const input = document.getElementById('todoInput');
-        const errorMessage = document.getElementById('errorMessage');
-        const text = input.value.trim();
+    function createTodo(e) {
+        if (e) {
+            e.preventDefault();
+        }
         
-        if (!text) {
-            errorMessage.style.display = 'block';
+        const input = document.getElementById('todoInput');
+        const todoText = input.value.trim();
+        
+        if (todoText.length === 0) {
             return;
         }
         
-        // Get the current priority
-        const priorityButton = document.querySelector('.priority-button');
-        const priority = priorityButton.querySelector('.priority-text').textContent;
-        // Get priorityClass from the selected option instead of the button
-        const priorityClass = priority.toLowerCase().replace(/\s+/g, '');  // Convert "P1" to "p1"
-        
-        console.log('Creating todo with:', {
-            text,
-            priority,
-            priorityClass,
-            expectedColor: {
-                'p1': '#F24822',
-                'p2': '#FF9800',
-                'p3': '#FFD600',
-                'p4': '#9E9E9E'
-            }[priorityClass]
-        });
-        
-        errorMessage.style.display = 'none';
         parent.postMessage({ 
             pluginMessage: { 
-                type: 'add-todo',
-                text: text,
-                priority: priority,
-                priorityClass: priorityClass
-            }
+                type: 'add-todo', 
+                text: todoText
+            } 
         }, '*');
         input.value = '';
     }
@@ -1344,9 +1338,14 @@
         
         // Helper function to render a todo item
         function renderTodoItem(todo, hasChildren = false) {
-            const handleIcon = currentDisplayMode === 'smart' 
-                ? (hasChildren ? `<span class="chevron" onclick="toggleCollapse(event)">▼</span>` : `<span style="width: 20px"></span>`)
-                : `<span class="drag-handle">⋮⋮</span>`;
+            let handleIcon;
+            if (currentDisplayMode === 'smart') {
+                handleIcon = hasChildren 
+                    ? `<span class="chevron" onclick="toggleCollapse(event)">▼</span>` 
+                    : `<span style="width: 36px"></span>`;
+            } else {
+                handleIcon = `<span class="drag-handle">⋮⋮</span>`;
+            }
 
             const priorityClass = todo.priorityClass || 'p2';
             const completedClass = todo.completed ? 'completed checked' : '';
@@ -1516,7 +1515,7 @@
     document.getElementById('todoInput').addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            addTodo();
+            createTodo(e);
         }
     });
 
@@ -1542,22 +1541,7 @@
         element.closest('.priority-dropdown').classList.remove('show');
     }
 
-    document.getElementById('addTodoBtn').onclick = () => {
-        const todoText = document.getElementById('todoInput').value;
-        
-        if (todoText.trim() === '') {
-            return;
-        }
-        
-        parent.postMessage({ 
-            pluginMessage: { 
-                type: 'add-todo', 
-                text: todoText
-            } 
-        }, '*');
-        
-        document.getElementById('todoInput').value = '';
-    };
+    document.getElementById('addTodoBtn').onclick = createTodo;
 
     function updateHoverPosition(event) {
         const hover = event.target.nextElementSibling;
@@ -1605,5 +1589,11 @@
     function hidePreview(event) {
         const hover = event.target.nextElementSibling;
         hover.style.display = 'none';
+    }
+
+    function handleEnterKey(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            createTodo(event);
+        }
     }
 </script>
